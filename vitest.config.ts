@@ -13,7 +13,7 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          include: ['test/simd.test.ts', 'test/wasmd.test.ts', 'test/xplad.test.ts', 'test/ibc.test.ts'],
+          include: ['test/simd.test.ts', 'test/wasmd.test.ts', 'test/xplad.test.ts', 'test/evmd.test.ts', 'test/ibc.test.ts'],
           fileParallelism: false,
           globalSetup: './test/global-setup.ts',
         },

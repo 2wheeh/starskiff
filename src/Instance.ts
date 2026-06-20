@@ -5,6 +5,7 @@ export { simd } from './instances/simd.js'
 export { wasmd } from './instances/wasmd.js'
 export { gaiad } from './instances/gaiad.js'
 export { xplad } from './instances/xplad.js'
+export { evmd } from './instances/evmd.js'
 export { hermes } from './instances/hermes.js'
 
 export type InstanceStatus =
