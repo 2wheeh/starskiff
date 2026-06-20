@@ -122,6 +122,10 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   patchGenesis?: (genesis: Genesis) => Genesis
   /** Additional app.toml patches. Merged after default patches. */
   extraAppToml?: Record<string, string>
+  /** Additional config.toml patches. Merged after default patches. */
+  extraConfigToml?: Record<string, string>
+  /** Extra args appended to the `start` command (e.g. `['--chain-id', id]`). */
+  extraStartArgs?: string[]
 }
 
 /**
@@ -152,6 +156,8 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     pprofPort = 6060,
     patchGenesis,
     extraAppToml,
+    extraConfigToml,
+    extraStartArgs,
     relayerHints,
   } = parameters
 
@@ -232,6 +238,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         'p2p.laddr': `tcp://0.0.0.0:${p2pPort}`,
         'rpc.pprof_laddr': `localhost:${pprofPort}`,
         'consensus.timeout_commit': '1s',
+        ...extraConfigToml,
       })
 
       patchToml(path.join(homeDir, 'config', 'app.toml'), {
@@ -244,7 +251,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
       })
 
       // 6. Start and wait for first block
-      return process.start(binary, ['start', '--home', homeDir], {
+      return process.start(binary, ['start', '--home', homeDir, ...(extraStartArgs ?? [])], {
         emitter,
         resolver({ process: proc, resolve, reject }) {
           const rpcUrl = `http://localhost:${port}`
@@ -369,6 +376,10 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
   binary: string
   name: string
   patchGenesis?: (genesis: Genesis) => Genesis
+  /** Additional config.toml patches, forwarded to cosmosBase. */
+  extraConfigToml?: Record<string, string>
+  /** Extra `start` command args, forwarded to cosmosBase. */
+  extraStartArgs?: string[]
 }
 
 /**
