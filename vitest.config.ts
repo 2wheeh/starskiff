@@ -18,6 +18,14 @@ export default defineConfig({
           globalSetup: './test/global-setup.ts',
         },
       },
+      {
+        // Self-contained: boots its own dedicated instance, no shared global-setup.
+        test: {
+          name: 'feature',
+          include: ['test/extra-validators.test.ts'],
+          fileParallelism: false,
+        },
+      },
     ],
     reporters: ['default', 'verbose'],
   },

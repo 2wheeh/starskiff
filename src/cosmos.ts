@@ -57,6 +57,14 @@ export type CosmosChainParameters = {
   validatorBalance?: string
   /** Validator self-delegation amount (amount only, denom appended). @default "10000000" */
   validatorStake?: string
+  /**
+   * Number of ADDITIONAL validators to create at genesis, beyond the default
+   * one (keys `validator-1`, `validator-2`, …). Each gets its own consensus key
+   * and is funded with `validatorBalance` / self-delegates `validatorStake`.
+   * Needed by tests that require multiple bonded validators (e.g. redelegation).
+   * @default 0
+   */
+  extraValidators?: number
   /** RPC listen address port. @default 26657 */
   rpcPort?: number
   /** gRPC listen port. @default 9090 */
@@ -148,6 +156,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     minimumGasPrices,
     validatorBalance = '100000000000',
     validatorStake = '10000000',
+    extraValidators = 0,
     rpcPort = 26657,
     grpcPort = 9090,
     apiPort = 1317,
@@ -225,11 +234,62 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         ])
       }
 
-      // 4. Gentx + collect
+      // 4. Gentx (default validator) + any extra validators, then collect.
       await run([
         'genesis', 'gentx', 'validator', `${validatorStake}${denom}`,
         '--chain-id', chainId, '--keyring-backend', 'test',
       ])
+
+      // Each extra validator needs a DISTINCT consensus key. A single `init`
+      // only yields one priv_validator_key, so derive each extra validator's
+      // consensus pubkey from a throwaway home and pass it via `gentx --pubkey`.
+      for (let i = 1; i <= extraValidators; i++) {
+        const valName = `validator-${i}`
+        await run(['keys', 'add', valName, '--keyring-backend', 'test'])
+        await run([
+          'genesis', 'add-genesis-account', valName,
+          `${validatorBalance}${denom}`, '--keyring-backend', 'test',
+        ])
+
+        const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'cosmock-cons-'))
+        try {
+          await x(binary, ['init', valName, '--chain-id', chainId, '--home', consHome], {
+            throwOnError: true,
+            nodeOptions: { stdio: 'pipe' },
+          })
+          // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
+          // the `tendermint` alias, so fall back to it.
+          const showValidator = (sub: string) =>
+            x(binary, [sub, 'show-validator', '--home', consHome], {
+              throwOnError: true,
+              nodeOptions: { stdio: 'pipe' },
+            })
+          let pubkey: string
+          try {
+            pubkey = (await showValidator('comet')).stdout
+          } catch {
+            pubkey = (await showValidator('tendermint')).stdout
+          }
+          // Minority stake: extra validators are bonded but run no node, so the
+          // single live (primary) validator must keep >2/3 of total voting power
+          // or CometBFT consensus halts. 1/10 of the primary stake each keeps the
+          // primary in supermajority for any small number of extra validators.
+          const extraStake = (BigInt(validatorStake) / 10n).toString()
+          await run([
+            'genesis', 'gentx', valName, `${extraStake}${denom}`,
+            '--pubkey', pubkey.trim(),
+            '--moniker', valName,
+            // All gentx share this home's node key, so the default
+            // `gentx-<nodeID>.json` filename collides — write a distinct file.
+            '--output-document',
+            path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
+            '--chain-id', chainId, '--keyring-backend', 'test',
+          ])
+        } finally {
+          fs.rmSync(consHome, { recursive: true, force: true })
+        }
+      }
+
       await run(['genesis', 'collect-gentxs'])
 
       // 5. Patch configs for port bindings
