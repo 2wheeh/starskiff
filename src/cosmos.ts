@@ -43,7 +43,7 @@ export type CosmosRelayerHints =
 
 /** Common parameters shared by all Cosmos SDK chain instances. */
 export type CosmosChainParameters = {
-  /** Chain ID. @default "cosmock-1" */
+  /** Chain ID. @default "starskiff-1" */
   chainId?: string
   /** Default denom. @default "stake" */
   denom?: string
@@ -96,7 +96,7 @@ export type CosmosInstance = Instance.Instance & {
 }
 
 /**
- * Genesis JSON structure — covers fields cosmock reads/writes.
+ * Genesis JSON structure — covers fields starskiff reads/writes.
  *
  * Field names follow cosmos-sdk proto JSON representation (snake_case).
  * Note: cosmjs-types uses camelCase — these types are intentionally
@@ -149,7 +149,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
   const {
     binary,
     name,
-    chainId = 'cosmock-1',
+    chainId = 'starskiff-1',
     denom = 'stake',
     prefix = 'cosmos',
     accounts = [],
@@ -188,7 +188,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
       { port = rpcPort }: Instance.InstanceStartOptions,
       { emitter }: Instance.InstanceStartContext,
     ) {
-      homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cosmock-'))
+      homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-'))
 
       const run = (args: string[]) =>
         x(binary, [...args, '--home', homeDir!], {
@@ -251,7 +251,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           `${validatorBalance}${denom}`, '--keyring-backend', 'test',
         ])
 
-        const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'cosmock-cons-'))
+        const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
         try {
           await x(binary, ['init', valName, '--chain-id', chainId, '--home', consHome], {
             throwOnError: true,

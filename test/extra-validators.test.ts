@@ -14,7 +14,7 @@ const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
 const simd = Instance.simd({
-  chainId: 'cosmock-multival-1',
+  chainId: 'starskiff-multival-1',
   denom: 'stake',
   extraValidators: 1,
   accounts: [{ mnemonic: TEST_MNEMONIC, coins: '1000000000stake', name: 'alice' }],

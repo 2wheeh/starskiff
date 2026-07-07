@@ -1,4 +1,4 @@
-# cosmock
+# starskiff
 
 HTTP testing instances for Cosmos. Lightweight Cosmos SDK node management via child processes.
 

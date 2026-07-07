@@ -1,5 +1,5 @@
 {
-  "name": "cosmock",
+  "name": "starskiff",
   "version": "0.4.1",
   "description": "Lightweight Cosmos SDK test instances via child processes",
   "type": "module",
@@ -30,11 +30,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/2wheeh/cosmock"
+    "url": "https://github.com/2wheeh/starskiff"
   },
-  "homepage": "https://github.com/2wheeh/cosmock#readme",
+  "homepage": "https://github.com/2wheeh/starskiff#readme",
   "bugs": {
-    "url": "https://github.com/2wheeh/cosmock/issues"
+    "url": "https://github.com/2wheeh/starskiff/issues"
   },
   "packageManager": "pnpm@10.30.3",
   "engines": {

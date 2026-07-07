@@ -96,7 +96,7 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
     mnemonic,
     gasPrice = '0.025',
     telemetryPort = 3001,
-    debug = process.env.COSMOCK_DEBUG_HERMES === '1',
+    debug = process.env.STARSKIFF_DEBUG_HERMES === '1',
     commandTimeoutMs = process.env.CI ? 600_000 : 300_000,
     commandRetries = process.env.CI ? 2 : 0,
     commandRetryDelayMs = 5_000,
@@ -114,7 +114,7 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
     port: telemetryPort,
 
     async start(_opts, { emitter }) {
-      homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cosmock-hermes-'));
+      homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-hermes-'));
       const configPath = path.join(homeDir, 'config.toml');
       const log = (message: string) => {
         emitter.emit('message', `[hermes-setup] ${message}\n`);

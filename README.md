@@ -1,13 +1,13 @@
-# cosmock
+# starskiff
 
 > [!WARNING]
 > This project is under active development. APIs may change without notice until v1.0.
 
-HTTP testing instances for Cosmos.
+Real Cosmos SDK nodes as ephemeral test instances — spawned as child processes, no Docker, no Kubernetes.
 
-Lightweight alternative to [Starship](https://github.com/cosmology-tech/starship) — run real Cosmos SDK chain nodes as child processes without Docker or Kubernetes.
+starskiff is the lightweight skiff to [Starship](https://github.com/cosmology-tech/starship)'s heavy vessel: where Starship stands up multi-chain environments on Kubernetes, starskiff boots a single real chain node in seconds — for integration tests and CI. Not a mock; the actual Go binary.
 
-Inspired by [prool](https://github.com/wevm/prool) (HTTP testing instances for Ethereum).
+Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum).
 
 ## Features
 
@@ -28,7 +28,7 @@ Inspired by [prool](https://github.com/wevm/prool) (HTTP testing instances for E
 ## Install
 
 ```bash
-pnpm add -D cosmock
+pnpm add -D starskiff
 ```
 
 ### Prerequisites
@@ -51,11 +51,11 @@ cd /tmp/wasmd && go build -o ~/go/bin/wasmd ./cmd/wasmd/
 
 ### Prebuilt binaries (CI)
 
-Prebuilt `linux/amd64` binaries are available in [GitHub Releases](https://github.com/2wheeh/cosmock/releases/tag/binaries/latest) for CI environments:
+Prebuilt `linux/amd64` binaries are available in [GitHub Releases](https://github.com/2wheeh/starskiff/releases/tag/binaries/latest) for CI environments:
 
 ```bash
 # Download and install (e.g. in GitHub Actions)
-gh release download "binaries/latest" --repo 2wheeh/cosmock --pattern "*.gz" --dir /tmp
+gh release download "binaries/latest" --repo 2wheeh/starskiff --pattern "*.gz" --dir /tmp
 gunzip -c /tmp/simd-linux-amd64.gz > /usr/local/bin/simd
 gunzip -c /tmp/wasmd-linux-amd64.gz > /usr/local/bin/wasmd
 chmod +x /usr/local/bin/simd /usr/local/bin/wasmd
@@ -68,7 +68,7 @@ chmod +x /usr/local/bin/simd /usr/local/bin/wasmd
 ### Basic (simd)
 
 ```ts
-import { Instance } from 'cosmock';
+import { Instance } from 'starskiff';
 
 const instance = Instance.simd({
   chainId: 'test-1',
@@ -95,7 +95,7 @@ await instance.stop();
 ### CosmWasm (wasmd)
 
 ```ts
-import { Instance } from 'cosmock';
+import { Instance } from 'starskiff';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { GasPrice } from '@cosmjs/stargate';
 
@@ -120,7 +120,7 @@ const result = await client.execute(address, contractAddress, executeMsg, 'auto'
 ```ts
 // test/global-setup.ts
 import type { TestProject } from 'vitest/node';
-import { Instance } from 'cosmock';
+import { Instance } from 'starskiff';
 
 export default async function setup({ provide }: TestProject) {
   const instance = Instance.wasmd({
@@ -188,7 +188,7 @@ await Promise.all([chain1.start(), chain2.start()]);
 ### Custom chain binary
 
 ```ts
-import { Instance, cosmosBase } from 'cosmock';
+import { Instance, cosmosBase } from 'starskiff';
 
 // Any Cosmos SDK binary works — same init/genesis/start flow
 const gaiad = Instance.define(params => cosmosBase({ binary: 'gaiad', name: 'gaiad', ...params }));
@@ -211,7 +211,7 @@ Shared by all instances (`CosmosChainParameters`):
 | Parameter          | Type              | Default           | Description        |
 | ------------------ | ----------------- | ----------------- | ------------------ |
 | `binary`           | `string`          | instance-specific | Path to binary     |
-| `chainId`          | `string`          | `"cosmock-1"`     | Chain ID           |
+| `chainId`          | `string`          | `"starskiff-1"`     | Chain ID           |
 | `denom`            | `string`          | `"stake"`         | Default denom      |
 | `accounts`         | `CosmosAccount[]` | `[]`              | Genesis accounts   |
 | `minimumGasPrices` | `string`          | `"0{denom}"`      | Minimum gas prices |
@@ -265,7 +265,7 @@ Recommended: fund multiple accounts in genesis, assign each test its own account
 
 ## Why not Starship?
 
-|              | Starship                   | cosmock              |
+|              | Starship                   | starskiff              |
 | ------------ | -------------------------- | -------------------- |
 | Infra        | Kubernetes + Helm + Docker | None (child process) |
 | Startup      | 2-5 min                    | 3-5 sec              |
@@ -276,12 +276,12 @@ Recommended: fund multiple accounts in genesis, assign each test its own account
 ## TODO
 
 - [ ] `cosmosEvmBase` — EVM JSON-RPC port support for EVM-enabled chains (e.g. xpla, evmos)
-- [ ] `cosmock.config.ts` — config-based chain + relayer declaration
-- [ ] `cosmock/vitest` — vitest plugin (automatic setup/teardown via `vitestPlugin(config)`)
-- [ ] `cosmock/playwright` — playwright plugin (`playwrightPlugin(config)`)
+- [ ] `starskiff.config.ts` — config-based chain + relayer declaration
+- [ ] `starskiff/vitest` — vitest plugin (automatic setup/teardown via `vitestPlugin(config)`)
+- [ ] `starskiff/playwright` — playwright plugin (`playwrightPlugin(config)`)
 - [ ] Automatic port allocation (avoid port conflicts in parallel tests)
 - [ ] `findFreePorts()` utility for direct `Instance` users
-- [ ] `cosmock/setup-binaries` GitHub Action for CI binary setup
+- [ ] `starskiff/setup-binaries` GitHub Action for CI binary setup
 
 ## License
 

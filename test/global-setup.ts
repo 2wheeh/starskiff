@@ -9,7 +9,7 @@ export default async function setup({ provide }: TestProject) {
   const cleanups: (() => Promise<void>)[] = [];
 
   const simd = Instance.simd({
-    chainId: 'cosmock-test-1',
+    chainId: 'starskiff-test-1',
     denom: 'stake',
     accounts: [{ mnemonic: TEST_MNEMONIC, coins: '1000000000stake', name: 'alice' }],
   });
