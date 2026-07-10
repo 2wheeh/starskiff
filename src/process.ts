@@ -1,5 +1,6 @@
 import { exec } from 'tinyexec';
 import type { Emitter } from 'mitt';
+import type { ChildProcess } from 'node:child_process';
 
 import { stripColors } from './utils.js';
 
@@ -27,13 +28,47 @@ export type Process = {
   stop(): Promise<void>;
 };
 
+export type ProcessOptions = {
+  /** Grace period (ms) between SIGTERM and SIGKILL escalation on stop(). @default 5_000 */
+  killGracePeriod?: number;
+};
+
+/** Truncated tail of buffered stderr, for surfacing e.g. a Go panic in error messages. */
+function errorTail(errorMessages: string[]): string {
+  if (errorMessages.length === 0) return '';
+  const tail = errorMessages.slice(-10).join('\n');
+  return `\n${tail.length > 2000 ? tail.slice(-2000) : tail}`;
+}
+
+/** Sends SIGTERM, escalating to SIGKILL if the process hasn't exited within gracePeriodMs. */
+async function terminate(proc: ChildProcess, gracePeriodMs: number) {
+  if (proc.exitCode !== null) return;
+
+  const closed = new Promise<void>(resolve => proc.on('close', () => resolve()));
+  proc.kill('SIGTERM');
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<'timeout'>(resolve => {
+    timer = setTimeout(() => resolve('timeout'), gracePeriodMs);
+  });
+
+  const result = await Promise.race([closed.then(() => 'closed' as const), timedOut]);
+  clearTimeout(timer);
+
+  if (result === 'timeout' && proc.exitCode === null) {
+    proc.kill('SIGKILL');
+    await closed;
+  }
+}
+
 /**
  * Creates a managed child process wrapper using tinyexec.
  *
  * Handles spawning, stdout/stderr forwarding to the emitter,
- * and graceful shutdown via SIGTERM.
+ * and graceful shutdown via SIGTERM (escalating to SIGKILL if ignored).
  */
-export function createProcess(name: string): Process {
+export function createProcess(name: string, options: ProcessOptions = {}): Process {
+  const { killGracePeriod = 5_000 } = options;
   let child: ReturnType<typeof exec> | undefined;
   const errorMessages: string[] = [];
 
@@ -48,8 +83,7 @@ export function createProcess(name: string): Process {
       const proc = child.process!;
 
       async function kill() {
-        proc.kill('SIGTERM');
-        await new Promise<void>(r => proc.on('close', r));
+        await terminate(proc, killGracePeriod);
       }
 
       resolver({
@@ -60,7 +94,7 @@ export function createProcess(name: string): Process {
         },
         async reject(reason) {
           await kill();
-          reject(new Error(`Failed to start "${name}": ${reason}`));
+          reject(new Error(`Failed to start "${name}": ${reason}${errorTail(errorMessages)}`));
         },
       });
 
@@ -82,6 +116,12 @@ export function createProcess(name: string): Process {
         emitter.emit('exit', code);
       });
 
+      // A missing binary (ENOENT) etc. never reaches 'exit' — without this the
+      // startup resolver would never settle and start() would hang forever.
+      proc.on('error', (error) => {
+        reject(new Error(`Failed to start "${name}": ${error.message}${errorTail(errorMessages)}`));
+      });
+
       return promise;
     },
 
@@ -89,8 +129,8 @@ export function createProcess(name: string): Process {
       if (!child) return;
       const proc = child.process;
       if (!proc || proc.exitCode !== null) return;
-      proc.kill('SIGTERM');
-      await new Promise<void>(resolve => proc.on('close', resolve));
+
+      await terminate(proc, killGracePeriod);
       child = undefined;
     },
   };

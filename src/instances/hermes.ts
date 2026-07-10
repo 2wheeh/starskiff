@@ -108,6 +108,21 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
   const processManager = createProcess(name);
   let homeDir: string | undefined;
 
+  // Shared by stop() and start()'s failure path so a half-started relayer
+  // (setup threw, or the start timeout fired) leaves nothing behind: the
+  // child process and the temp home dir.
+  async function cleanup() {
+    try {
+      await processManager.stop();
+    } catch {
+      // best-effort: tolerate an already-dead process
+    }
+    if (homeDir) {
+      fs.rmSync(homeDir, { recursive: true, force: true });
+      homeDir = undefined;
+    }
+  }
+
   return {
     name,
     host: 'localhost',
@@ -115,6 +130,8 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
 
     async start(_opts, { emitter }) {
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-hermes-'));
+
+      try {
       const configPath = path.join(homeDir, 'config.toml');
       const log = (message: string) => {
         emitter.emit('message', `[hermes-setup] ${message}\n`);
@@ -445,7 +462,7 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
       log('all channels ready, starting relayer');
 
       // 4. Start relaying
-      return processManager.start(binary, ['--config', configPath, 'start'], {
+      return await processManager.start(binary, ['--config', configPath, 'start'], {
         emitter,
         resolver({ process: proc, resolve, reject }) {
           let resolved = false;
@@ -469,14 +486,14 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
           });
         },
       });
+      } catch (error) {
+        await cleanup();
+        throw error;
+      }
     },
 
     async stop() {
-      await processManager.stop();
-      if (homeDir) {
-        fs.rmSync(homeDir, { recursive: true, force: true });
-        homeDir = undefined;
-      }
+      await cleanup();
     },
   };
 });

@@ -92,12 +92,18 @@ export const evmd = Instance.define((parameters?: EvmdParameters) => {
       // evmd denoms are atto-prefixed (e.g. atest → test).
       const display = denom.replace(/^[au]/, '')
       if (genesis.app_state.bank) {
+        // If denom has no leading a/u (e.g. plain "stake"), display === denom
+        // — a second denom_units entry would duplicate the denom and fail
+        // genesis validation, so collapse to a single unit in that case.
+        const denomUnits = display === denom
+          ? [{ denom, exponent: 0, aliases: [] }]
+          : [
+              { denom, exponent: 0, aliases: [] },
+              { denom: display, exponent: 18, aliases: [] },
+            ]
         genesis.app_state.bank.denom_metadata = [{
           description: 'The native staking and EVM token.',
-          denom_units: [
-            { denom, exponent: 0, aliases: [] },
-            { denom: display, exponent: 18, aliases: [] },
-          ],
+          denom_units: denomUnits,
           base: denom,
           display,
           name: display.toUpperCase(),

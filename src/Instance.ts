@@ -144,7 +144,7 @@ export function define<P = undefined, R extends DefineFnResult = DefineFnResult>
       },
       messages: {
         clear() { messages = [] },
-        get() { return messages },
+        get() { return [...messages] },
       },
 
       async start() {
@@ -153,9 +153,28 @@ export function define<P = undefined, R extends DefineFnResult = DefineFnResult>
           throw new Error(`Instance "${name}" is not in an idle or stopped state. Status: ${status}`)
 
         let startTimer: ReturnType<typeof setTimeout> | undefined
+        // Guards the in-flight start(...) call's .then/.catch below: once the
+        // timeout fires, status/resolvers have already been reset (and a
+        // retry may be in flight), so a late settle must not touch them.
+        let timedOut = false
         if (typeof timeout === 'number') {
           startTimer = setTimeout(() => {
+            timedOut = true
+            status = 'idle'
+            self.messages.clear()
+            emitter.off('message', onMessage)
+            emitter.off('listening', onListening)
+            emitter.off('exit', onExit)
             startResolver.reject(new Error(`Instance "${name}" failed to start in time.`))
+            startResolver = Promise.withResolvers<() => void>()
+            // Best-effort: the child may still be running post-timeout, so
+            // ask the underlying stop to tear it down. Never let this throw —
+            // the instance must remain retryable regardless of the outcome.
+            try {
+              void stop({ emitter, status: self.status }).catch(() => {})
+            } catch {
+              // ignore
+            }
           }, timeout)
         }
 
@@ -177,16 +196,21 @@ export function define<P = undefined, R extends DefineFnResult = DefineFnResult>
         )
           .then(() => {
             if (startTimer) clearTimeout(startTimer)
+            if (timedOut) return
             status = 'started'
             stopResolver = Promise.withResolvers<void>()
             startResolver.resolve(self.stop.bind(self))
           })
           .catch((error) => {
             if (startTimer) clearTimeout(startTimer)
+            if (timedOut) return
             status = 'idle'
             self.messages.clear()
             emitter.off('message', onMessage)
+            emitter.off('listening', onListening)
+            emitter.off('exit', onExit)
             startResolver.reject(error)
+            startResolver = Promise.withResolvers<() => void>()
           })
 
         return startResolver.promise
@@ -222,6 +246,7 @@ export function define<P = undefined, R extends DefineFnResult = DefineFnResult>
             if (stopTimer) clearTimeout(stopTimer)
             status = 'started'
             stopResolver.reject(error)
+            stopResolver = Promise.withResolvers<void>()
           })
 
         return stopResolver.promise

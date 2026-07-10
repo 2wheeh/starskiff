@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import mitt from 'mitt';
 import * as Instance from '../src/Instance.js';
+import { createProcess, type EventTypes } from '../src/process.js';
 
 /** Creates a fake instance that resolves start/stop via callbacks. */
 function fakeInstance(options?: { startDelay?: number; stopDelay?: number }) {
@@ -151,6 +153,58 @@ describe('Instance', () => {
       await inst.start();
       expect(inst.status).toBe('started');
     });
+
+    it('retries successfully after a failed start', async () => {
+      let attempt = 0;
+
+      const instance = Instance.define(() => ({
+        name: 'flaky',
+        host: 'localhost',
+        port: 3000,
+        async start(_opts, { emitter }) {
+          attempt++;
+          if (attempt === 1) throw new Error('boom');
+          emitter.emit('listening', undefined);
+        },
+        async stop() {},
+      }));
+
+      const inst = instance();
+
+      await expect(inst.start()).rejects.toThrow('boom');
+      expect(inst.status).toBe('idle');
+
+      await inst.start();
+      expect(inst.status).toBe('started');
+    });
+
+    it('leaves the instance recoverable and stops the child after a start timeout', async () => {
+      let stopCalls = 0;
+      let hang = true;
+
+      const instance = Instance.define(() => ({
+        name: 'hangs',
+        host: 'localhost',
+        port: 3000,
+        async start(_opts, { emitter }) {
+          if (hang) await new Promise(() => {}); // never resolves
+          emitter.emit('listening', undefined);
+        },
+        async stop() {
+          stopCalls++;
+        },
+      }));
+
+      const inst = instance({ timeout: 50 });
+
+      await expect(inst.start()).rejects.toThrow('failed to start in time');
+      expect(inst.status).toBe('idle');
+      expect(stopCalls).toBe(1); // best-effort teardown of the hung child
+
+      hang = false;
+      await inst.start();
+      expect(inst.status).toBe('started');
+    });
   });
 
   describe('events', () => {
@@ -218,6 +272,27 @@ describe('Instance', () => {
       expect(inst.messages.get()).toEqual(['msg-7', 'msg-8', 'msg-9']);
     });
 
+    it('returns a snapshot, not the live buffer', async () => {
+      const instance = Instance.define(() => ({
+        name: 'snapshot',
+        host: 'localhost',
+        port: 3000,
+        async start(_opts, { emitter }) {
+          emitter.emit('message', 'one');
+          emitter.emit('listening', undefined);
+        },
+        async stop() {},
+      }));
+
+      const inst = instance();
+      await inst.start();
+
+      const snapshot = inst.messages.get();
+      snapshot.push('mutated');
+
+      expect(inst.messages.get()).toEqual(['one']);
+    });
+
     it('clears messages on stop', async () => {
       const instance = Instance.define(() => ({
         name: 'clearable',
@@ -255,5 +330,58 @@ describe('Instance', () => {
       const inst = instance({ timeout: 100 });
       await expect(inst.start()).rejects.toThrow('failed to start in time');
     });
+  });
+});
+
+describe('createProcess', () => {
+  it('rejects with a clear error when the binary is missing, instead of hanging', async () => {
+    const proc = createProcess('missing-binary');
+    const emitter = mitt<EventTypes>();
+
+    await expect(
+      proc.start('definitely-not-a-real-binary-xyz', [], {
+        emitter,
+        resolver() {},
+      }),
+    ).rejects.toThrow(/Failed to start "missing-binary"/);
+  });
+
+  it('escalates to SIGKILL when the child ignores SIGTERM', async () => {
+    const proc = createProcess('sigterm-ignoring', { killGracePeriod: 50 });
+    const emitter = mitt<EventTypes>();
+
+    await proc.start('bash', ['-c', 'trap "" TERM; sleep 30'], {
+      emitter,
+      resolver({ resolve }) { resolve(); },
+    });
+
+    const start = Date.now();
+    await proc.stop();
+    const elapsed = Date.now() - start;
+
+    // Should escalate past the ignored SIGTERM well before sleep(30) would exit naturally.
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it('clears the grace-period timer once stop() resolves normally', async () => {
+    const proc = createProcess('normal-stop', { killGracePeriod: 5_000 });
+    const emitter = mitt<EventTypes>();
+
+    await proc.start('bash', ['-c', 'sleep 30'], {
+      emitter,
+      resolver({ resolve }) { resolve(); },
+    });
+
+    // Fake timers so the grace-period setTimeout is trackable without waiting
+    // 5s in real time; the child's real 'close' event still fires immediately
+    // and isn't affected by mocking JS timers.
+    vi.useFakeTimers();
+    try {
+      await proc.stop();
+      // A leaked timer (never cleared on the fast path) would still be armed here.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

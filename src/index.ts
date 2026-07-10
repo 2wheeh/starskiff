@@ -3,3 +3,5 @@ export { cosmosBase, cosmosEvmBase, DEFAULT_COSMOS_EVM_PK_TYPE_URL, type Genesis
 export { XPLA_DEFAULT_PRECOMPILES, type XpladParameters } from './instances/xplad.js'
 export { EVMD_DEFAULT_PRECOMPILES, type EvmdParameters } from './instances/evmd.js'
 export type { EventTypes } from './process.js'
+export { findFreePorts, type PortSet } from './ports.js'
+export { testAccounts, type TestAccount } from './accounts.js'

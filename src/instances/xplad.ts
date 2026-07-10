@@ -80,12 +80,18 @@ export const xplad = Instance.define((parameters?: XpladParameters) => {
       // bank denom_metadata is required by EVM coin info init
       const display = denom.replace(/^a/, '')
       if (genesis.app_state.bank) {
+        // If denom has no leading `a` (e.g. plain "stake"), display === denom
+        // — a second denom_units entry would duplicate the denom and fail
+        // genesis validation, so collapse to a single unit in that case.
+        const denomUnits = display === denom
+          ? [{ denom, exponent: 0, aliases: [] }]
+          : [
+              { denom, exponent: 0, aliases: [] },
+              { denom: display, exponent: 18, aliases: [] },
+            ]
         genesis.app_state.bank.denom_metadata = [{
           description: 'The native token.',
-          denom_units: [
-            { denom, exponent: 0, aliases: [] },
-            { denom: display, exponent: 18, aliases: [] },
-          ],
+          denom_units: denomUnits,
           base: denom,
           display,
           name: display.toUpperCase(),

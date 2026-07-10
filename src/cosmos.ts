@@ -93,6 +93,12 @@ export type CosmosInstance = Instance.Instance & {
   apiPort: number
   /** Relayer hints advertised by the instance for Hermes configuration. */
   relayerHints?: CosmosRelayerHints
+  /** `http://{host}:{port}` — CometBFT RPC endpoint. */
+  rpcUrl: string
+  /** `http://{host}:{grpcPort}` — gRPC endpoint. */
+  grpcUrl: string
+  /** `http://{host}:{apiPort}` — REST (Cosmos SDK API) endpoint. */
+  apiUrl: string
 }
 
 /**
@@ -104,8 +110,8 @@ export type CosmosInstance = Instance.Instance & {
  */
 export type Genesis = {
   app_state: {
-    staking: { params: { bond_denom: string } }
-    mint: { params: { mint_denom: string } }
+    staking?: { params?: { bond_denom: string } }
+    mint?: { params?: { mint_denom: string } }
     crisis?: { constant_fee?: { denom: string } }
     gov?: {
       deposit_params?: { min_deposit?: { denom: string }[] }
@@ -134,6 +140,12 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   extraConfigToml?: Record<string, string>
   /** Extra args appended to the `start` command (e.g. `['--chain-id', id]`). */
   extraStartArgs?: string[]
+  /**
+   * Additional readiness check ANDed with the default CometBFT height check
+   * before `start()` resolves. Used by `cosmosEvmBase` to also wait for the
+   * JSON-RPC (EVM) endpoint to come up.
+   */
+  extraReadinessCheck?: () => Promise<boolean>
 }
 
 /**
@@ -167,15 +179,37 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     extraAppToml,
     extraConfigToml,
     extraStartArgs,
+    extraReadinessCheck,
     relayerHints,
   } = parameters
 
   const process = createProcess(name)
+  const host = 'localhost'
   let homeDir: string | undefined
+  let healthPollInterval: ReturnType<typeof setInterval> | undefined
+
+  // Shared by stop() and start()'s failure path so a half-started instance
+  // (bootstrap threw, or the start timeout fired) leaves nothing behind:
+  // the health-poll interval, the child process, and the temp home dir.
+  async function cleanup() {
+    if (healthPollInterval) {
+      clearInterval(healthPollInterval)
+      healthPollInterval = undefined
+    }
+    try {
+      await process.stop()
+    } catch {
+      // best-effort: tolerate an already-dead process
+    }
+    if (homeDir) {
+      fs.rmSync(homeDir, { recursive: true, force: true })
+      homeDir = undefined
+    }
+  }
 
   return {
     name,
-    host: 'localhost',
+    host,
     port: rpcPort,
     chainId,
     prefix,
@@ -183,6 +217,9 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     grpcPort,
     apiPort,
     relayerHints,
+    get rpcUrl() { return `http://${host}:${rpcPort}` },
+    get grpcUrl() { return `http://${host}:${grpcPort}` },
+    get apiUrl() { return `http://${host}:${apiPort}` },
 
     async start(
       { port = rpcPort }: Instance.InstanceStartOptions,
@@ -190,171 +227,216 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     ) {
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-'))
 
-      const run = (args: string[]) =>
-        x(binary, [...args, '--home', homeDir!], {
-          throwOnError: true,
-          nodeOptions: { stdio: 'pipe' },
-        })
-
-      // 1. Init chain
-      await run(['init', 'validator', '--chain-id', chainId])
-
-      // 2. Patch genesis
-      const genesisPath = path.join(homeDir, 'config', 'genesis.json')
-      let genesis: Genesis = JSON.parse(fs.readFileSync(genesisPath, 'utf-8'))
-
-      genesis = patchDenom(genesis, denom)
-      if (patchGenesis) genesis = patchGenesis(genesis)
-
-      fs.writeFileSync(genesisPath, JSON.stringify(genesis, null, 2))
-
-      // 3. Validator + accounts
-      await run(['keys', 'add', 'validator', '--keyring-backend', 'test'])
-      await run([
-        'genesis', 'add-genesis-account', 'validator',
-        `${validatorBalance}${denom}`, '--keyring-backend', 'test',
-      ])
-
-      for (let i = 0; i < accounts.length; i++) {
-        const account = accounts[i]
-        const keyName = account.name || `test-${i}`
-
-        const result = spawnSync(binary, [
-          'keys', 'add', keyName, '--recover',
-          '--keyring-backend', 'test', '--home', homeDir!,
-        ], { input: account.mnemonic + '\n', stdio: ['pipe', 'pipe', 'pipe'] })
-
-        if (result.status !== 0) {
-          throw new Error(`Failed to recover key "${keyName}": ${result.stderr?.toString()}`)
-        }
-
-        await run([
-          'genesis', 'add-genesis-account', keyName,
-          account.coins, '--keyring-backend', 'test',
-        ])
-      }
-
-      // 4. Gentx (default validator) + any extra validators, then collect.
-      await run([
-        'genesis', 'gentx', 'validator', `${validatorStake}${denom}`,
-        '--chain-id', chainId, '--keyring-backend', 'test',
-      ])
-
-      // Each extra validator needs a DISTINCT consensus key. A single `init`
-      // only yields one priv_validator_key, so derive each extra validator's
-      // consensus pubkey from a throwaway home and pass it via `gentx --pubkey`.
-      for (let i = 1; i <= extraValidators; i++) {
-        const valName = `validator-${i}`
-        await run(['keys', 'add', valName, '--keyring-backend', 'test'])
-        await run([
-          'genesis', 'add-genesis-account', valName,
-          `${validatorBalance}${denom}`, '--keyring-backend', 'test',
-        ])
-
-        const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
-        try {
-          await x(binary, ['init', valName, '--chain-id', chainId, '--home', consHome], {
+      try {
+        const run = (args: string[]) =>
+          x(binary, [...args, '--home', homeDir!], {
             throwOnError: true,
             nodeOptions: { stdio: 'pipe' },
           })
-          // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
-          // the `tendermint` alias, so fall back to it.
-          const showValidator = (sub: string) =>
-            x(binary, [sub, 'show-validator', '--home', consHome], {
+
+        // 1. Init chain
+        await run(['init', 'validator', '--chain-id', chainId])
+
+        // 2. Patch genesis
+        const genesisPath = path.join(homeDir, 'config', 'genesis.json')
+        let genesis: Genesis = JSON.parse(fs.readFileSync(genesisPath, 'utf-8'))
+
+        genesis = patchDenom(genesis, denom)
+        if (patchGenesis) genesis = patchGenesis(genesis)
+
+        fs.writeFileSync(genesisPath, JSON.stringify(genesis, null, 2))
+
+        // 3. Validator + accounts
+        await run(['keys', 'add', 'validator', '--keyring-backend', 'test'])
+        await run([
+          'genesis', 'add-genesis-account', 'validator',
+          `${validatorBalance}${denom}`, '--keyring-backend', 'test',
+        ])
+
+        for (let i = 0; i < accounts.length; i++) {
+          const account = accounts[i]
+          const keyName = account.name || `test-${i}`
+
+          const result = spawnSync(binary, [
+            'keys', 'add', keyName, '--recover',
+            '--keyring-backend', 'test', '--home', homeDir!,
+          ], { input: account.mnemonic + '\n', stdio: ['pipe', 'pipe', 'pipe'] })
+
+          if (result.status !== 0) {
+            throw new Error(`Failed to recover key "${keyName}": ${result.stderr?.toString()}`)
+          }
+
+          await run([
+            'genesis', 'add-genesis-account', keyName,
+            account.coins, '--keyring-backend', 'test',
+          ])
+        }
+
+        // 4. Gentx (default validator) + any extra validators, then collect.
+        await run([
+          'genesis', 'gentx', 'validator', `${validatorStake}${denom}`,
+          '--chain-id', chainId, '--keyring-backend', 'test',
+        ])
+
+        // Each extra validator needs a DISTINCT consensus key. A single `init`
+        // only yields one priv_validator_key, so derive each extra validator's
+        // consensus pubkey from a throwaway home and pass it via `gentx --pubkey`.
+        const extraStake = computeExtraValidatorStake(validatorStake, extraValidators)
+        for (let i = 1; i <= extraValidators; i++) {
+          const valName = `validator-${i}`
+          await run(['keys', 'add', valName, '--keyring-backend', 'test'])
+          await run([
+            'genesis', 'add-genesis-account', valName,
+            `${validatorBalance}${denom}`, '--keyring-backend', 'test',
+          ])
+
+          const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
+          try {
+            await x(binary, ['init', valName, '--chain-id', chainId, '--home', consHome], {
               throwOnError: true,
               nodeOptions: { stdio: 'pipe' },
             })
-          let pubkey: string
-          try {
-            pubkey = (await showValidator('comet')).stdout
-          } catch {
-            pubkey = (await showValidator('tendermint')).stdout
-          }
-          // Minority stake: extra validators are bonded but run no node, so the
-          // single live (primary) validator must keep >2/3 of total voting power
-          // or CometBFT consensus halts. 1/10 of the primary stake each keeps the
-          // primary in supermajority for any small number of extra validators.
-          const extraStake = (BigInt(validatorStake) / 10n).toString()
-          await run([
-            'genesis', 'gentx', valName, `${extraStake}${denom}`,
-            '--pubkey', pubkey.trim(),
-            '--moniker', valName,
-            // All gentx share this home's node key, so the default
-            // `gentx-<nodeID>.json` filename collides — write a distinct file.
-            '--output-document',
-            path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
-            '--chain-id', chainId, '--keyring-backend', 'test',
-          ])
-        } finally {
-          fs.rmSync(consHome, { recursive: true, force: true })
-        }
-      }
-
-      await run(['genesis', 'collect-gentxs'])
-
-      // 5. Patch configs for port bindings
-      patchToml(path.join(homeDir, 'config', 'config.toml'), {
-        'rpc.laddr': `tcp://0.0.0.0:${port}`,
-        'p2p.laddr': `tcp://0.0.0.0:${p2pPort}`,
-        'rpc.pprof_laddr': `localhost:${pprofPort}`,
-        'consensus.timeout_commit': '1s',
-        ...extraConfigToml,
-      })
-
-      patchToml(path.join(homeDir, 'config', 'app.toml'), {
-        'api.enable': 'true',
-        'api.address': `tcp://0.0.0.0:${apiPort}`,
-        'grpc.address': `0.0.0.0:${grpcPort}`,
-        'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
-        'minimum-gas-prices': minimumGasPrices ?? `0${denom}`,
-        ...extraAppToml,
-      })
-
-      // 6. Start and wait for first block
-      return process.start(binary, ['start', '--home', homeDir, ...(extraStartArgs ?? [])], {
-        emitter,
-        resolver({ process: proc, resolve, reject }) {
-          const rpcUrl = `http://localhost:${port}`
-          const interval = setInterval(async () => {
+            // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
+            // the `tendermint` alias, so fall back to it.
+            const showValidator = (sub: string) =>
+              x(binary, [sub, 'show-validator', '--home', consHome], {
+                throwOnError: true,
+                nodeOptions: { stdio: 'pipe' },
+              })
+            let pubkey: string
             try {
-              const res = await fetch(`${rpcUrl}/status`)
-              if (res.ok) {
-                const data = await res.json() as { result?: { sync_info?: { latest_block_height?: string } } }
-                const height = Number(
-                  data.result?.sync_info?.latest_block_height ?? 0,
-                )
-                if (height > 0) {
-                  clearInterval(interval)
-                  resolve()
-                }
-              }
+              pubkey = (await showValidator('comet')).stdout
             } catch {
-              // Node not ready yet
+              pubkey = (await showValidator('tendermint')).stdout
             }
-          }, 250)
+            await run([
+              'genesis', 'gentx', valName, `${extraStake}${denom}`,
+              '--pubkey', pubkey.trim(),
+              '--moniker', valName,
+              // All gentx share this home's node key, so the default
+              // `gentx-<nodeID>.json` filename collides — write a distinct file.
+              '--output-document',
+              path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
+              '--chain-id', chainId, '--keyring-backend', 'test',
+            ])
+          } finally {
+            fs.rmSync(consHome, { recursive: true, force: true })
+          }
+        }
 
-          proc.process?.on('exit', (code: number | null) => {
-            clearInterval(interval)
-            if (code !== 0) reject(`${name} exited with code ${code}`)
-          })
-        },
-      })
+        await run(['genesis', 'collect-gentxs'])
+
+        // 5. Patch configs for port bindings
+        patchToml(path.join(homeDir, 'config', 'config.toml'), {
+          'rpc.laddr': `tcp://0.0.0.0:${port}`,
+          'p2p.laddr': `tcp://0.0.0.0:${p2pPort}`,
+          'rpc.pprof_laddr': `localhost:${pprofPort}`,
+          'consensus.timeout_commit': '1s',
+          ...extraConfigToml,
+        }, binary)
+
+        patchToml(path.join(homeDir, 'config', 'app.toml'), {
+          'api.enable': 'true',
+          'api.address': `tcp://0.0.0.0:${apiPort}`,
+          'grpc.address': `0.0.0.0:${grpcPort}`,
+          'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
+          'minimum-gas-prices': minimumGasPrices ?? `0${denom}`,
+          ...extraAppToml,
+        }, binary)
+
+        // 6. Start and wait for first block
+        return await process.start(binary, ['start', '--home', homeDir, ...(extraStartArgs ?? [])], {
+          emitter,
+          resolver({ process: proc, resolve, reject }) {
+            const rpcUrl = `http://localhost:${port}`
+
+            // Tail recent output so an exit-during-startup rejection carries
+            // context instead of a bare exit code.
+            const recentOutput: string[] = []
+            const bufferOutput = (line: string) => {
+              recentOutput.push(line)
+              if (recentOutput.length > 20) recentOutput.shift()
+            }
+            emitter.on('stdout', bufferOutput)
+            emitter.on('stderr', bufferOutput)
+
+            healthPollInterval = setInterval(async () => {
+              try {
+                const res = await fetch(`${rpcUrl}/status`)
+                if (res.ok) {
+                  const data = await res.json() as { result?: { sync_info?: { latest_block_height?: string } } }
+                  const height = Number(
+                    data.result?.sync_info?.latest_block_height ?? 0,
+                  )
+                  if (height > 0 && (extraReadinessCheck ? await extraReadinessCheck() : true)) {
+                    clearInterval(healthPollInterval)
+                    healthPollInterval = undefined
+                    resolve()
+                  }
+                }
+              } catch {
+                // Node not ready yet
+              }
+            }, 250)
+
+            proc.process?.on('exit', (code: number | null) => {
+              clearInterval(healthPollInterval)
+              healthPollInterval = undefined
+              emitter.off('stdout', bufferOutput)
+              emitter.off('stderr', bufferOutput)
+              if (code !== 0) {
+                const tail = recentOutput.join('').trim().split('\n').slice(-5).join(' | ')
+                reject(`${name} exited with code ${code}${tail ? `: ${tail}` : ''}`)
+              }
+            })
+          },
+        })
+      } catch (error) {
+        await cleanup()
+        throw error
+      }
     },
 
     async stop() {
-      await process.stop()
-      if (homeDir) {
-        fs.rmSync(homeDir, { recursive: true, force: true })
-        homeDir = undefined
-      }
+      await cleanup()
     },
   }
 }
 
+/**
+ * Computes the self-delegation stake for each extra validator so the primary
+ * (the only validator running a live node) keeps a supermajority of voting
+ * power. Extra validators are bonded but never sign blocks, so if their
+ * combined stake reaches `validatorStake / 2` the primary drops to <=2/3 and
+ * CometBFT halts at genesis.
+ *
+ * Invariant: `primaryStake > 2 * extraValidators * extraStake` must hold.
+ * Solving for `extraStake` with a 2x safety margin gives
+ * `extraStake = primaryStake / (4 * extraValidators)`, which holds for any
+ * `extraValidators >= 1` — a fixed fraction (e.g. the old 1/10) only stays
+ * safe up to 4 extra validators.
+ */
+export function computeExtraValidatorStake(validatorStake: string, extraValidators: number): bigint {
+  if (extraValidators <= 0) return 0n
+
+  const stake = BigInt(validatorStake) / (4n * BigInt(extraValidators))
+  if (stake < 1n) {
+    throw new Error(
+      `extraValidators=${extraValidators} is too large for validatorStake=${validatorStake}: ` +
+      `computed per-validator stake rounds to 0. Increase validatorStake or reduce extraValidators.`,
+    )
+  }
+  return stake
+}
+
 /** Patch common denom fields across SDK versions. */
 function patchDenom(genesis: Genesis, denom: string): Genesis {
-  genesis.app_state.staking.params.bond_denom = denom
-  genesis.app_state.mint.params.mint_denom = denom
+  if (genesis.app_state.staking?.params) {
+    genesis.app_state.staking.params.bond_denom = denom
+  }
+  if (genesis.app_state.mint?.params) {
+    genesis.app_state.mint.params.mint_denom = denom
+  }
 
   if (genesis.app_state.crisis?.constant_fee) {
     genesis.app_state.crisis.constant_fee.denom = denom
@@ -370,10 +452,11 @@ function patchDenom(genesis: Genesis, denom: string): Genesis {
 }
 
 /** Simple TOML patcher for `[section]\nkey = "value"` patterns. */
-function patchToml(filePath: string, patches: Record<string, string>): void {
+function patchToml(filePath: string, patches: Record<string, string>, binary: string): void {
   let currentSection = ''
   const lines = fs.readFileSync(filePath, 'utf-8').split('\n')
   const result: string[] = []
+  const matchedKeys = new Set<string>()
 
   for (const line of lines) {
     const sectionMatch = line.match(/^\[([^\]]+)\]/)
@@ -393,6 +476,7 @@ function patchToml(filePath: string, patches: Record<string, string>): void {
         if (match) {
           const needsQuotes = patchValue !== 'true' && patchValue !== 'false'
           result.push(`${match[1]}${needsQuotes ? `"${patchValue}"` : patchValue}`)
+          matchedKeys.add(patchKey)
           patched = true
           break
         }
@@ -400,6 +484,15 @@ function patchToml(filePath: string, patches: Record<string, string>): void {
     }
 
     if (!patched) result.push(line)
+  }
+
+  // SDK versions drift on section/key names; a silent no-op here just shows
+  // up later as a confusing readiness timeout, so warn instead.
+  const unmatched = Object.keys(patches).filter((key) => !matchedKeys.has(key))
+  if (unmatched.length > 0) {
+    console.warn(
+      `[starskiff:${binary}] ${path.basename(filePath)}: no matching key for ${unmatched.join(', ')} (SDK config layout may have drifted)`,
+    )
   }
 
   fs.writeFileSync(filePath, result.join('\n'))
@@ -429,6 +522,8 @@ export type CosmosEvmChainParameters = Omit<CosmosChainParameters, 'relayerHints
 /** A Cosmos EVM chain instance with evmPort exposed. */
 export type CosmosEvmInstance = CosmosInstance & {
   evmPort: number
+  /** `http://{host}:{evmPort}` — JSON-RPC (EVM) endpoint. */
+  evmUrl: string
 }
 
 /** Internal parameters for cosmosEvmBase. */
@@ -481,6 +576,26 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
       }
       return userPatch ? userPatch(genesis) : genesis
     },
+    // CometBFT reporting a block doesn't mean the JSON-RPC server is up yet
+    // (it's a separate listener started after the app is ready) — poll it too.
+    extraReadinessCheck: async () => {
+      try {
+        const res = await fetch(`http://localhost:${evmPort}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        })
+        if (!res.ok) return false
+        const data = await res.json() as { result?: string }
+        return typeof data.result === 'string'
+      } catch {
+        return false
+      }
+    },
   })
-  return { ...base, evmPort }
+  return {
+    ...base,
+    evmPort,
+    get evmUrl() { return `http://localhost:${evmPort}` },
+  }
 }

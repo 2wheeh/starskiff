@@ -86,11 +86,32 @@ await instance.start();
 
 // Connect with cosmjs
 import { StargateClient } from '@cosmjs/stargate';
-const client = await StargateClient.connect(`http://localhost:${instance.port}`);
+const client = await StargateClient.connect(instance.rpcUrl);
 const balance = await client.getBalance(address, 'stake');
 
 await instance.stop();
 ```
+
+### Test accounts
+
+Skip deriving your own dev mnemonic — `testAccounts` ships a handful of
+well-known, publicly-documented BIP39 mnemonics with addresses pre-derived
+for the `cosmos` bech32 prefix:
+
+```ts
+import { Instance, testAccounts } from 'starskiff';
+
+const [alice, bob] = testAccounts;
+
+const instance = Instance.simd({
+  chainId: 'test-1',
+  accounts: [{ mnemonic: alice.mnemonic, coins: '1000000000stake', name: alice.name }],
+});
+```
+
+These mnemonics are public — never fund them with real value. Addresses
+assume the `cosmos` prefix; chains configured with a different `prefix`
+(e.g. `osmo`, `xpla`) need addresses re-derived from the same mnemonic.
 
 ### CosmWasm (wasmd)
 
@@ -105,7 +126,7 @@ const instance = Instance.wasmd({
 });
 await instance.start();
 
-const client = await SigningCosmWasmClient.connectWithSigner(`http://localhost:${instance.port}`, wallet, {
+const client = await SigningCosmWasmClient.connectWithSigner(instance.rpcUrl, wallet, {
   gasPrice: GasPrice.fromString('0stake'),
 });
 
@@ -129,7 +150,7 @@ export default async function setup({ provide }: TestProject) {
   });
   await instance.start();
 
-  provide('rpcUrl', `http://localhost:${instance.port}`);
+  provide('rpcUrl', instance.rpcUrl);
 
   return () => instance.stop();
 }
@@ -165,25 +186,26 @@ it('queries balance', async () => {
 
 ### Multi-chain
 
-```ts
-const chain1 = Instance.wasmd({
-  chainId: 'wasm-1',
-  rpcPort: 26657,
-  grpcPort: 9090,
-  apiPort: 1317,
-  p2pPort: 26656,
-});
+Hand-assigning ports gets tedious (and error-prone) once you run more than one
+chain — use `findFreePorts()` instead:
 
-const chain2 = Instance.wasmd({
-  chainId: 'wasm-2',
-  rpcPort: 26660,
-  grpcPort: 9092,
-  apiPort: 1318,
-  p2pPort: 26661,
-});
+```ts
+import { findFreePorts, Instance } from 'starskiff';
+
+const [ports1, ports2] = await Promise.all([findFreePorts(), findFreePorts()]);
+
+const chain1 = Instance.wasmd({ chainId: 'wasm-1', ...ports1 });
+const chain2 = Instance.wasmd({ chainId: 'wasm-2', ...ports2 });
 
 await Promise.all([chain1.start(), chain2.start()]);
 ```
+
+Each `findFreePorts()` call returns a `PortSet` of distinct, currently-free
+ports (`rpcPort`, `grpcPort`, `apiPort`, `p2pPort`, `grpcWebPort`,
+`pprofPort`). Pass `{ evm: true }` to also grab an `evmPort` for EVM-enabled
+chains (e.g. `xplad`, `evmd`). Note the TOCTOU caveat: a port is free at grab
+time, but nothing stops another process from binding it before the instance
+actually starts — rare, but possible under heavy concurrent test runs.
 
 ### Custom chain binary
 
@@ -253,6 +275,23 @@ const instance = Instance.wasmd({ chainId: 'test-1' }, { timeout: 30_000 });
 | `name`     | `string` | Instance name                                                           |
 | `messages` | `object` | `.get()` returns buffered messages, `.clear()` clears them              |
 
+### URL getters
+
+Cosmos instances (`simd`, `wasmd`, `xplad`, `evmd`, and anything built on
+`cosmosBase`) also expose ready-to-use endpoint URLs — no more manually
+templating `http://localhost:${instance.port}`:
+
+| Property  | Type     | Description                                              |
+| --------- | -------- | ---------------------------------------------------------|
+| `rpcUrl`  | `string` | `http://{host}:{port}` — CometBFT RPC endpoint            |
+| `grpcUrl` | `string` | `http://{host}:{grpcPort}` — gRPC endpoint                |
+| `apiUrl`  | `string` | `http://{host}:{apiPort}` — REST (Cosmos SDK API) endpoint |
+| `evmUrl`  | `string` | `http://{host}:{evmPort}` — EVM JSON-RPC endpoint (EVM instances only, e.g. `xplad`, `evmd`) |
+
+```ts
+const client = await StargateClient.connect(instance.rpcUrl);
+```
+
 ## Testing strategies
 
 | Strategy                 | Isolation | Speed     | Use case                                    |
@@ -280,7 +319,7 @@ Recommended: fund multiple accounts in genesis, assign each test its own account
 - [ ] `starskiff/vitest` — vitest plugin (automatic setup/teardown via `vitestPlugin(config)`)
 - [ ] `starskiff/playwright` — playwright plugin (`playwrightPlugin(config)`)
 - [ ] Automatic port allocation (avoid port conflicts in parallel tests)
-- [ ] `findFreePorts()` utility for direct `Instance` users
+- [x] `findFreePorts()` utility for direct `Instance` users
 - [ ] `starskiff/setup-binaries` GitHub Action for CI binary setup
 
 ## License

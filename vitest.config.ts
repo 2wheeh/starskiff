@@ -7,7 +7,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['test/Instance.test.ts', 'test/smoke.test.ts'],
+          include: ['test/Instance.test.ts', 'test/smoke.test.ts', 'test/ports.test.ts', 'test/accounts.test.ts', 'test/extra-validator-stake.test.ts'],
         },
       },
       {
