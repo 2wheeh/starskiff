@@ -1,6 +1,6 @@
 {
   "name": "starskiff",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Lightweight Cosmos SDK test instances via child processes",
   "type": "module",
   "exports": {
