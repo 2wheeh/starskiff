@@ -1,0 +1,63 @@
+# marood [maroo — cosmos-evm chain with network presets]
+
+`Instance.marood()` boots a [maroo](https://github.com/Hashed-Open-Finance/maroo) node. maroo is a cosmos-evm chain with a **split denom model**: staking is denominated in `(at)maroo` while fees, gov, mint and the EVM run on the 18-decimal `a(t)okrw`.
+
+:::note
+The `marood` binary is not publicly distributed — build it from the maroo repo and put it on `PATH`.
+:::
+
+## Network presets
+
+A `network` parameter selects the full chain identity — cosmos/EVM chain ids and the denom set:
+
+| Preset               | Cosmos chain id  | EVM chain id | Bond denom | Fee/EVM denom | Currency |
+| -------------------- | ---------------- | ------------ | ---------- | ------------- | -------- |
+| `testnet` *(default)* | `maroo_450815-1` | `450815`     | `atmaroo`  | `atokrw`      | tOKRW    |
+| `mainnet`            | `maroo_815-1`    | `815`        | `amaroo`   | `aokrw`       | OKRW     |
+
+The `testnet` preset matches viem's `marooTestnet` chain definition, so it's the right default for local EVM testing:
+
+```ts
+import { createPublicClient, http } from 'viem';
+import { marooTestnet } from 'viem/chains';
+import { Instance } from 'starskiff';
+
+const instance = Instance.marood({
+  accounts: [
+    // coins must be alphabetically sorted: atmaroo < atokrw
+    { mnemonic: '...', coins: '1000000000000000000000atmaroo,1000000000000000000000atokrw' },
+  ],
+});
+await instance.start();
+
+const client = createPublicClient({ chain: marooTestnet, transport: http(instance.evmUrl) });
+await client.getChainId(); // 450815
+```
+
+```ts
+// mainnet preset
+const instance = Instance.marood({ network: 'mainnet' }); // eth_chainId → 815
+```
+
+## What the instance patches
+
+A plain `marood init` writes cosmos/evm module defaults (evm_denom `aatom`, empty bank metadata / erc20 pairs / precompiles / preinstalls) rather than maroo's app-side defaults. The instance mirrors the chain's own `local_node.sh` setup:
+
+- **EVM denom + bank metadata** — points `evm_denom` at the preset's fee denom and writes its 18-decimal metadata (startup panics otherwise).
+- **Native OKRW ERC20** — registers the erc20 token pair at `MAROO_NATIVE_ERC20` (`0xEeee…EEeE`).
+- **Static precompiles** — `MAROO_DEFAULT_PRECOMPILES`: the cosmos-evm set minus Vesting, plus maroo's OKRW/PCL/EAS/Agent precompiles. Same [three-state semantics](/docs/instances/xplad#precompiles) as xplad.
+- **Genesis preinstalls** — `MAROO_PREINSTALLS` (Multicall3, Create2, Permit2, ERC-4337 entrypoints, …), the same set the real networks ship. viem's `marooTestnet.contracts.multicall3` (`blockCreated: 0`) works out of the box. Pass `preinstalls: []` to disable.
+- **EVM chain id** — passed via `--evm.evm-chain-id` so the preset is authoritative (the binary's compiled-in app.toml default is the mainnet id).
+
+## Parameters
+
+`MaroodParameters` extends [`CosmosEvmChainParameters`](/docs/api/instance#parameters) with:
+
+| Parameter      | Type                        | Default              | Description                          |
+| -------------- | --------------------------- | -------------------- | ------------------------------------ |
+| `binary`       | `string`                    | `"marood"`           | Path to the binary                   |
+| `network`      | `'mainnet' \| 'testnet'`    | `"testnet"`          | Chain id / denom preset              |
+| `preinstalls`  | `EvmPreinstall[]`           | `MAROO_PREINSTALLS`  | Contracts preinstalled at genesis    |
+| `patchGenesis` | `(genesis) => genesis`      | —                    | Chained after marood's own patches   |
+
+Note that starskiff's `denom` parameter maps to the **bond** denom on this chain (it drives `gentx` and `staking.params.bond_denom`); everything fee-related follows the preset's fee denom.

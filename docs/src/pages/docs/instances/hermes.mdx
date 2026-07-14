@@ -1,0 +1,61 @@
+# hermes [IBC relayer between chain instances]
+
+`Instance.hermes()` wraps the [Hermes](https://hermes.informal.systems) IBC relayer. Give it running chain instances and a funded relayer account, and it writes the Hermes config, registers keys, creates clients/connections/channels, and starts relaying — `start()` resolves once every requested channel is open.
+
+## Install the binary
+
+Grab a release from [informalsystems/hermes](https://github.com/informalsystems/hermes/releases) and put `hermes` on `PATH`.
+
+## Usage
+
+```ts
+import { Instance, testAccounts } from 'starskiff';
+
+const relayerMnemonic = testAccounts[1].mnemonic; // must be funded on ALL chains
+
+const chainA = Instance.wasmd({
+  chainId: 'ibc-a',
+  prefix: 'wasm',
+  accounts: [{ mnemonic: relayerMnemonic, coins: '1000000000stake', name: 'relayer' }],
+});
+const chainB = Instance.wasmd({
+  chainId: 'ibc-b',
+  prefix: 'wasm',
+  rpcPort: 26757, // distinct ports — see the multi-chain guide
+  // ...
+  accounts: [{ mnemonic: relayerMnemonic, coins: '1000000000stake', name: 'relayer' }],
+});
+
+await Promise.all([chainA.start(), chainB.start()]);
+
+const relayer = Instance.hermes(
+  {
+    channels: [[chainA, chainB]], // one [chain, chain] tuple per channel
+    mnemonic: relayerMnemonic,
+  },
+  { timeout: 180_000 }, // handshakes take a while
+);
+await relayer.start(); // resolves when channel-0 is open
+```
+
+Channels are created in order: the first tuple becomes `channel-0` (on both ends of that pair), the next `channel-1`, and so on.
+
+## EVM chains as counterparties
+
+Instances built on `cosmosEvmBase` (e.g. [evmd](/docs/instances/evmd)) advertise `relayerHints` — Hermes needs to know they use `ethermint` address derivation (coin type 60) and which protobuf `PubKey` type to use. `Instance.hermes()` picks the hints up automatically; mixed pairs like `[wasmd, evmd]` just work.
+
+## Parameters
+
+| Parameter             | Type                                   | Default                    | Description                             |
+| --------------------- | -------------------------------------- | -------------------------- | --------------------------------------- |
+| `channels`            | `[CosmosInstance, CosmosInstance][]`   | — (required)               | Channel pairs to create + relay         |
+| `mnemonic`            | `string`                               | — (required)               | Relayer account, funded on all chains   |
+| `binary`              | `string`                               | `"hermes"`                 | Path to the binary                      |
+| `gasPrice`            | `string`                               | `"0.025"`                  | Gas price amount                        |
+| `telemetryPort`       | `number`                               | `3001`                     | Telemetry port                          |
+| `debug`               | `boolean`                              | `false`                    | Verbose setup logs                      |
+| `commandTimeoutMs`    | `number`                               | `300000` (`600000` in CI)  | Timeout per Hermes command              |
+| `commandRetries`      | `number`                               | `0` (`2` in CI)            | Retries for setup commands              |
+| `commandRetryDelayMs` | `number`                               | `5000`                     | Delay between retries                   |
+
+See the [IBC guide](/docs/guides/ibc) for an end-to-end transfer test.

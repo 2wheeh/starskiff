@@ -1,0 +1,90 @@
+# Getting Started [Install starskiff and boot your first Cosmos SDK node]
+
+## Overview
+
+starskiff spawns **real Cosmos SDK nodes** as child processes for integration tests — no Docker, no Kubernetes, just the chain's Go binary. An instance boots in seconds: `init` → genesis patching → account funding → `gentx` → `start` → health-polled until the first block.
+
+:::warning
+starskiff is under active development. APIs may change without notice until v1.0.
+:::
+
+## Installation
+
+:::code-group
+
+```bash [pnpm]
+pnpm add -D starskiff
+```
+
+```bash [npm]
+npm install -D starskiff
+```
+
+```bash [yarn]
+yarn add -D starskiff
+```
+
+```bash [bun]
+bun add -D starskiff
+```
+
+:::
+
+## Prerequisites
+
+Install the chain binary for the instance you need and make sure it's on `PATH`. Building from source requires [Go](https://go.dev/dl/) >= 1.25.
+
+**simd** (Cosmos SDK simapp):
+
+```bash
+git clone --depth 1 https://github.com/cosmos/cosmos-sdk.git /tmp/cosmos-sdk
+cd /tmp/cosmos-sdk/simapp && go build -o ~/go/bin/simd ./simd/
+```
+
+**evmd** (cosmos/evm reference chain, for EVM testing):
+
+```bash
+git clone --depth 1 https://github.com/cosmos/evm.git /tmp/cosmos-evm
+cd /tmp/cosmos-evm && go build -o ~/go/bin/evmd ./cmd/evmd/
+```
+
+See the [instance pages](/docs/instances) for the full list, and the [CI guide](/docs/guides/ci) for getting binaries onto CI runners.
+
+## Quick Start
+
+```ts
+import { Instance, testAccounts } from 'starskiff';
+
+const [alice] = testAccounts;
+
+const instance = Instance.simd({
+  chainId: 'test-1',
+  accounts: [{ mnemonic: alice.mnemonic, coins: '1000000000stake', name: alice.name }],
+});
+
+await instance.start();
+
+// Ready-to-use endpoint URLs:
+instance.rpcUrl; //  http://localhost:26657 — CometBFT RPC
+instance.grpcUrl; // http://localhost:9090  — gRPC
+instance.apiUrl; //  http://localhost:1317  — REST (Cosmos SDK API)
+
+await instance.stop();
+```
+
+`start()` resolves once the node reports its first block (and, for EVM chains, once the JSON-RPC server responds). `stop()` kills the process and removes the temporary home directory — every run starts from a fresh genesis.
+
+## Using with cosmjs
+
+```ts
+import { SigningStargateClient, GasPrice } from '@cosmjs/stargate';
+import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+
+const wallet = await DirectSecp256k1HdWallet.fromMnemonic(alice.mnemonic, { prefix: 'cosmos' });
+
+const client = await SigningStargateClient.connectWithSigner(instance.rpcUrl, wallet, {
+  gasPrice: GasPrice.fromString('0stake'),
+});
+```
+
+For wiring instances into your test runner, see the [vitest guide](/docs/guides/vitest); for EVM JSON-RPC testing, see the [evmd instance](/docs/instances/evmd).

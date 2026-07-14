@@ -1,0 +1,67 @@
+# Custom Chains [Wrap any Cosmos SDK binary with cosmosBase / cosmosEvmBase]
+
+Any Cosmos SDK binary that follows the standard `init` → `genesis` → `start` CLI shape works with starskiff. Instance definitions are thin wrappers: set the binary name and chain defaults, delegate the rest.
+
+## Minimal instance
+
+```ts
+import { Instance, cosmosBase, type CosmosChainParameters } from 'starskiff';
+
+export type MychaindParameters = CosmosChainParameters & {
+  binary?: string;
+};
+
+export const mychaind = Instance.define((parameters?: MychaindParameters) => {
+  const { binary = 'mychaind', ...rest } = parameters || {};
+  return cosmosBase({ binary, name: 'mychaind', ...rest });
+});
+
+const instance = mychaind({ chainId: 'my-1', denom: 'umych' });
+```
+
+`cosmosBase` handles the full boot flow: `init` → genesis denom patching → key creation + account funding → `gentx` / `collect-gentxs` → config.toml/app.toml port patching → `start` → health-polling until the first block.
+
+## Patching genesis
+
+Chain-specific genesis tweaks go through the `patchGenesis` hook, applied after starskiff's default denom patching:
+
+```ts
+return cosmosBase({
+  binary, name: 'mychaind', ...rest,
+  patchGenesis: (genesis) => {
+    genesis.app_state.gov.params.voting_period = '5s';
+    return genesis;
+  },
+});
+```
+
+Extra config patches and start flags are available for the odd chain that needs them:
+
+| Hook                  | Applies to                              |
+| --------------------- | --------------------------------------- |
+| `patchGenesis`        | `genesis.json` (after denom patching)   |
+| `extraAppToml`        | `app.toml` (`'section.key': 'value'`)   |
+| `extraConfigToml`     | `config.toml`                           |
+| `extraStartArgs`      | appended to the `start` command         |
+| `extraReadinessCheck` | ANDed with the first-block health check |
+
+## EVM chains
+
+For cosmos-evm chains, `cosmosEvmBase` extends the flow with a JSON-RPC port (`evmPort`, patched into app.toml and health-checked on start), `ethermint` relayer hints for Hermes, and an `activeStaticPrecompiles` genesis patch:
+
+```ts
+import { Instance, cosmosEvmBase, type CosmosEvmChainParameters } from 'starskiff';
+
+export const myevmd = Instance.define((parameters?: CosmosEvmChainParameters) => {
+  return cosmosEvmBase({
+    binary: 'myevmd',
+    name: 'myevmd',
+    denom: 'atoken', // 18 decimals → bump validator amounts:
+    validatorBalance: '100000000000000000000000', // 1e23
+    validatorStake: '10000000000000000000000', // 1e22
+    ...parameters,
+  });
+});
+```
+
+18-decimal denoms need large validator amounts because the SDK's power reduction is denom-scaled — see the shipped [evmd](/docs/instances/evmd) definition for a reference implementation (it also shows denom-metadata and precompile patching for chains whose `init` writes incomplete genesis defaults).
