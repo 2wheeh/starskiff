@@ -1,57 +1,27 @@
 {
-  "name": "starskiff",
-  "version": "0.4.3",
-  "description": "Lightweight Cosmos SDK test instances via child processes",
+  "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": [
-    "src",
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.app.json",
-    "check": "tsc -b",
-    "test": "vitest"
-  },
-  "keywords": [
-    "cosmos",
-    "testing",
-    "simd",
-    "cosmjs"
-  ],
-  "author": "wnhlee <https://github.com/2wheeh>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/2wheeh/starskiff"
-  },
-  "homepage": "https://github.com/2wheeh/starskiff#readme",
-  "bugs": {
-    "url": "https://github.com/2wheeh/starskiff/issues"
-  },
   "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=22"
   },
-  "dependencies": {
-    "mitt": "^3.0.1",
-    "tinyexec": "^1.0.4"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2wheeh/starskiff"
+  },
+  "scripts": {
+    "build": "pnpm --filter starskiff build",
+    "check": "pnpm --filter starskiff check",
+    "test": "pnpm --filter starskiff test",
+    "test:unit": "pnpm --filter starskiff test:unit",
+    "test:integration": "pnpm --filter starskiff test:integration",
+    "docs:dev": "pnpm --filter docs dev",
+    "docs:build": "pnpm --filter docs build",
+    "docs:preview": "pnpm --filter docs preview",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
-    "@cosmjs/cosmwasm-stargate": "^0.38.1",
-    "@cosmjs/proto-signing": "^0.38.1",
-    "@cosmjs/stargate": "^0.38.1",
-    "@types/node": "^25.5.0",
-    "cosmjs-types": "^0.11.0",
-    "typescript": "^6.0.2",
-    "viem": "^2.55.0",
-    "vitest": "^4.1.2"
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.30.0"
   }
 }

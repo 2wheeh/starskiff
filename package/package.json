@@ -1,0 +1,60 @@
+{
+  "name": "starskiff",
+  "version": "0.4.3",
+  "description": "Lightweight Cosmos SDK test instances via child processes",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.app.json",
+    "check": "tsc -b",
+    "test": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
+  },
+  "keywords": [
+    "cosmos",
+    "testing",
+    "simd",
+    "cosmjs"
+  ],
+  "author": "wnhlee <https://github.com/2wheeh>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2wheeh/starskiff",
+    "directory": "package"
+  },
+  "homepage": "https://github.com/2wheeh/starskiff#readme",
+  "bugs": {
+    "url": "https://github.com/2wheeh/starskiff/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "mitt": "^3.0.1",
+    "tinyexec": "^1.0.4"
+  },
+  "devDependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.38.1",
+    "@cosmjs/proto-signing": "^0.38.1",
+    "@cosmjs/stargate": "^0.38.1",
+    "@types/node": "^25.5.0",
+    "cosmjs-types": "^0.11.0",
+    "typescript": "^6.0.2",
+    "viem": "^2.55.0",
+    "vitest": "^4.1.2"
+  }
+}
