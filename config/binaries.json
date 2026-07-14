@@ -3,14 +3,14 @@
     {
       "name": "simd",
       "repo": "cosmos/cosmos-sdk",
-      "ref": "v0.53.6",
+      "ref": "v0.53.7",
       "buildType": "standard",
       "buildCmd": "cd simapp && go build -o ../build/simd ./simd/"
     },
     {
       "name": "wasmd",
       "repo": "CosmWasm/wasmd",
-      "ref": "v0.61.9",
+      "ref": "v0.61.14",
       "buildType": "cosmwasm"
     },
     {
@@ -22,16 +22,16 @@
     {
       "name": "gaiad",
       "repo": "cosmos/gaia",
-      "ref": "v27.0.0",
+      "ref": "v27.5.0",
       "buildType": "prebuilt",
-      "asset": "gaiad-v27.0.0-linux-amd64"
+      "asset": "gaiad-v27.5.0-linux-amd64"
     },
     {
       "name": "xplad",
       "repo": "xpladev/xpla",
-      "ref": "v1.9.0",
+      "ref": "v1.10.0",
       "buildType": "prebuilt",
-      "asset": "xpla_1.9.0_Linux_x86_64.tar.gz",
+      "asset": "xpla_1.10.0_Linux_x86_64.tar.gz",
       "extract": "tar"
     },
     {
