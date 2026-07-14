@@ -1,0 +1,71 @@
+# Container Runtime [Run nodes from official chain images]
+
+Chains that publish an official image are **container-first**: the instance runs that image out of the box. No Go toolchain, no `go build`, no hunting for a release asset — and the node you test against is the exact artifact the network itself ships.
+
+```ts
+import { Instance } from 'starskiff';
+
+// Boots ghcr.io/xpladev/xpla — the image XPLA publishes
+const instance = Instance.xplad({
+  accounts: [{ mnemonic: '...', coins: '1000000000000000000000axpla' }],
+});
+await instance.start();
+```
+
+Docker must be running. The image is pulled on first use and cached by Docker afterwards.
+
+## This is not orchestration
+
+starskiff does not become Kubernetes-shaped when it runs a container. The image is only **where the node comes from** — everything else is unchanged:
+
+- The chain CLI (`init`, `keys add`, `gentx`, …) runs in disposable containers against a host temp directory that's bind mounted as the node's home.
+- **Genesis and config patching stays plain host-side file I/O.** The container and starskiff read the same bytes.
+- The node runs **attached** as a child process, so `stdout`/`stderr` streaming, the message buffer, events, and exit detection are identical to the binary runtime.
+- Ports are published 1:1, so `rpcUrl` / `apiUrl` / `evmUrl` and every cosmjs or viem client work exactly as before.
+- `stop()` kills the process, force-removes the container, and deletes the temp home directory.
+
+There is no Helm, no cluster, no pod scheduling — just `docker run` in place of `exec`.
+
+## Escape hatches
+
+Not every chain ships an image, and sometimes you need your own build. Two ways out:
+
+```ts
+// 1. Bind your own image (a fork, a local build, a private registry)
+Instance.xplad({ image: 'my-registry/xpla:custom' });
+
+// 2. Use a binary on PATH — the classic runtime
+Instance.xplad({ binary: 'xplad' });
+```
+
+Naming a `binary` opts out of the container runtime entirely.
+
+The inverse works too: instances that default to a binary (because their chain publishes no image — `simd`, `evmd`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
+
+```ts
+Instance.evmd({ image: 'my-registry/evmd:dev' });
+```
+
+## Which chains publish images?
+
+Support is per-chain because the ecosystem is uneven — many cosmos-evm networks ship release binaries but no image, or an image whose tags lag mainnet. starskiff only defaults to an image when the chain publishes one and keeps it current:
+
+| Instance | Default runtime | Why |
+| -------- | --------------- | --- |
+| `xplad` | Container (`ghcr.io/xpladev/xpla`) | Official image, tracks mainnet |
+| [`simd`](/docs/instances/simd), [`evmd`](/docs/instances/evmd) | Binary | Reference apps — no chain image |
+| others | Binary | No official image, or image tags lag the live network |
+
+## CI
+
+Both runtimes work in CI. The container runtime removes the binary-provisioning step entirely — no build job, no release assets to keep in sync — at the cost of an image pull per cold run. See the [CI guide](/docs/guides/ci).
+
+```yaml
+      - run: pnpm vitest run   # docker is preinstalled on GitHub runners
+```
+
+## Caveats
+
+- **Docker becomes a hard dependency** for container-backed instances. On a machine without a running daemon, `start()` fails with an actionable error telling you to pass a `binary` instead.
+- **First run pays the pull** (a few hundred MB). It's pulled before the start clock matters, and cached after.
+- On macOS, containers run in a VM, so filesystem I/O is slower than a native binary. Boot is still seconds, not minutes.
