@@ -46,15 +46,31 @@ The inverse works too: instances that default to a binary (because their chain p
 Instance.evmd({ image: 'my-registry/evmd:dev' });
 ```
 
-## Which chains publish images?
+## Where the image comes from
 
-Support is per-chain because the ecosystem is uneven — many cosmos-evm networks ship release binaries but no image, or an image whose tags lag mainnet. starskiff only defaults to an image when the chain publishes one and keeps it current:
+An instance is container-first when it can source a node from an image. That image comes from one of two places:
 
-| Instance | Default runtime | Why |
-| -------- | --------------- | --- |
-| `xplad` | Container (`ghcr.io/xpladev/xpla`) | Official image, tracks mainnet |
-| [`simd`](/docs/instances/simd), [`evmd`](/docs/instances/evmd) | Binary | Reference apps — no chain image |
-| others | Binary | No official image, or image tags lag the live network |
+1. **The chain's own official image**, when it exists and tracks the live network — e.g. `xplad` runs `ghcr.io/xpladev/xpla`.
+2. **An image starskiff builds and publishes**, when the chain ships none (or a stale one) — e.g. `evmd` runs `ghcr.io/2wheeh/starskiff/evmd`, built from `cosmos/evm` source because cosmos/evm publishes no image.
+
+| Instance | Default runtime | Source |
+| -------- | --------------- | ------ |
+| `xplad` | Container | Official image, tracks mainnet |
+| `evmd` | Container | **starskiff-published** image (cosmos/evm ships none) |
+| [`simd`](/docs/instances/simd) | Binary | Reference app; simapp image only tags minor lines |
+| others | Binary | No usable image yet (see [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json)) |
+
+### Images we publish
+
+For chains with no usable upstream image, starskiff builds a multi-arch (amd64 + arm64) image from source and pushes it to its **public** GHCR namespace, `ghcr.io/2wheeh/starskiff/<chain>`. Public GHCR packages are free to store and pull, so this stays within the free tier.
+
+The list of what we publish is an explicit allowlist in [`config/images.json`](https://github.com/2wheeh/starskiff/blob/main/config/images.json) — the single source of truth for both the publish workflow and the instance's default image. A dedicated `publish-images` workflow builds each entry; targets are never derived from the instance list, so a chain is only ever redistributed by a deliberate edit.
+
+:::warning
+**maroo is never published here.** Its node source is private, so it must not be redistributed. maroo stays local-only: inject your own image or binary (`Instance.marood({ image })` / `{ binary }`), or use a private image in a CI environment that allows it. A CI guard fails the build if any publish target mentions `maroo`/`marood`.
+:::
+
+Building a chain image ourselves means we redistribute someone else's node, so images are pinned to an exact upstream ref + commit and (after first publish) to the multi-arch manifest **digest**, with build provenance and an SBOM attached.
 
 ## CI
 
