@@ -22,6 +22,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Published-image allowlist guard (maroo hard rule)
+        run: node scripts/check-image-allowlist.mjs
+
       - name: Build & Type check
         run: pnpm check
 
