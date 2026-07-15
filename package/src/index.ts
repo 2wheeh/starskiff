@@ -1,7 +1,7 @@
 export * as Instance from './Instance.js'
 export { cosmosBase, cosmosEvmBase, DEFAULT_COSMOS_EVM_PK_TYPE_URL, type Genesis, type CosmosAccount, type CosmosChainParameters, type CosmosBaseParameters, type CosmosInstance, type CosmosEvmChainParameters, type CosmosEvmBaseParameters, type CosmosEvmInstance, type CosmosRelayerHints } from './cosmos.js'
 export { XPLA_DEFAULT_PRECOMPILES, XPLA_DEFAULT_IMAGE, type XpladParameters } from './instances/xplad.js'
-export { EVMD_DEFAULT_PRECOMPILES, type EvmdParameters } from './instances/evmd.js'
+export { EVMD_DEFAULT_PRECOMPILES, EVMD_DEFAULT_IMAGE, type EvmdParameters } from './instances/evmd.js'
 export { MAROO_NETWORKS, MAROO_DEFAULT_PRECOMPILES, MAROO_PREINSTALLS, MAROO_NATIVE_ERC20, type MaroodParameters, type MaroodNetwork, type MaroodNetworkPreset, type EvmPreinstall } from './instances/marood.js'
 export type { EventTypes } from './process.js'
 export { findFreePorts, type PortSet } from './ports.js'

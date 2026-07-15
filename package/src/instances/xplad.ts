@@ -1,5 +1,6 @@
 import * as Instance from '../Instance.js'
 import { cosmosEvmBase, type CosmosEvmChainParameters, type Genesis } from '../cosmos.js'
+import { resolveInstanceImage } from '../docker.js'
 
 /**
  * Default active static precompiles for xplad.
@@ -77,12 +78,10 @@ export const xplad = Instance.define((parameters?: XpladParameters) => {
     ...rest
   } = params
 
-  // Container-first, with both escape hatches: an explicit `image` wins, and
-  // naming a `binary` opts out of docker entirely. `binary` still carries the
-  // in-image executable name for the container runtime.
-  const image = 'image' in params
-    ? params.image
-    : 'binary' in params ? undefined : XPLA_DEFAULT_IMAGE
+  // Container-first, with both escape hatches: an explicit `image` selects the
+  // container runtime, naming a `binary` opts out of docker. `binary` still
+  // carries the in-image executable name for the container runtime.
+  const image = resolveInstanceImage(params, XPLA_DEFAULT_IMAGE)
 
   // Preserve the three-state semantics of `activeStaticPrecompiles`:
   // omitted → xpla default; explicit `undefined` → pass through (binary default);

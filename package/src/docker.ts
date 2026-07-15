@@ -7,6 +7,41 @@ import { x } from 'tinyexec'
  */
 export const CONTAINER_HOME = '/chain'
 
+/**
+ * Resolves which container image an instance should run, enforcing the
+ * "default artifact policy": there is NO automatic fallback chain — an instance
+ * runs from exactly one source, chosen here.
+ *
+ * - neither `image` nor `binary` passed → the instance's default image
+ * - `image` passed → that image (must be a non-empty ref)
+ * - `binary` passed → `undefined`, i.e. opt out of docker and run the binary
+ * - both passed → throw; they select mutually exclusive runtimes
+ *
+ * Presence is checked with `in`, so `{ image: undefined }` / `{ image: '' }` are
+ * rejected rather than silently falling through to the binary runtime.
+ */
+export function resolveInstanceImage(
+  params: { image?: string; binary?: string },
+  defaultImage: string,
+): string | undefined {
+  const hasImage = 'image' in params
+  const hasBinary = 'binary' in params
+  if (hasImage && hasBinary) {
+    throw new Error(
+      'Pass either "image" (container runtime) or "binary" (local binary on PATH), not both — ' +
+      'they select mutually exclusive runtimes.',
+    )
+  }
+  if (hasImage) {
+    if (typeof params.image !== 'string' || params.image.trim() === '') {
+      throw new Error('"image" must be a non-empty image reference; omit it to use the default image.')
+    }
+    return params.image
+  }
+  if (hasBinary) return undefined
+  return defaultImage
+}
+
 /** Container-runtime settings for an instance. */
 export type DockerOptions = {
   /** Image reference, e.g. `ghcr.io/xpladev/xpla:v1.10.0`. */
@@ -29,7 +64,12 @@ function userArgs(): string[] {
 }
 
 function mountArgs({ homeDir }: DockerOptions): string[] {
-  return ['-v', `${homeDir}:${CONTAINER_HOME}`, '-e', `HOME=${CONTAINER_HOME}`]
+  // -w pins the working dir to the mounted home. Some chain binaries (e.g. evmd)
+  // instantiate the app at command-construction time and create a `data/` dir
+  // relative to CWD *before* reading --home; if CWD is the image's default
+  // (often `/`, not writable by --user) that panics. Anchoring CWD to the
+  // writable mount makes any image work regardless of its baked-in WORKDIR.
+  return ['-v', `${homeDir}:${CONTAINER_HOME}`, '-e', `HOME=${CONTAINER_HOME}`, '-w', CONTAINER_HOME]
 }
 
 /**
