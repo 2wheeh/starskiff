@@ -1,0 +1,120 @@
+name: Publish chain images
+
+# Builds and publishes the multi-arch images starskiff redistributes to its own
+# public GHCR namespace (config/images.json). Dedicated, allowlist-guarded, and
+# separate from release-binaries.yml — a generic matrix over instances could
+# capture maroo, so this workflow only ever builds an explicitly approved chain.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Image name from config/images.json (allowlisted)
+        required: true
+        default: evmd
+
+# Least privilege: read the repo, write packages. Intentionally NOT contents:write.
+permissions:
+  contents: read
+  packages: write
+
+concurrency: publish-images-${{ github.event.inputs.target }}
+
+jobs:
+  publish:
+    name: Build & push ${{ github.event.inputs.target }}
+    runs-on: ubuntu-latest
+    environment: publish-images # protect with required reviewers in repo settings
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # maroo hard rule + allowlist, enforced before anything is built.
+      # The dispatch input is never interpolated into a shell command — it flows
+      # through env and is quoted, so a crafted input can't inject shell.
+      - name: Allowlist guard
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+        run: node scripts/check-image-allowlist.mjs "$TARGET"
+
+      - name: Resolve target from manifest
+        id: img
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          jq -e --arg n "$TARGET" '.images[] | select(.name==$n)' config/images.json >/dev/null \
+            || { echo "no manifest entry for $TARGET" >&2; exit 1; }
+          entry=$(jq -c --arg n "$TARGET" '.images[] | select(.name==$n)' config/images.json)
+          for k in repo ref commit context image; do
+            v=$(echo "$entry" | jq -r ".$k")
+            echo "$k=$v" >> "$GITHUB_OUTPUT"
+          done
+          echo "platforms=$(echo "$entry" | jq -r '.platforms | join(",")')" >> "$GITHUB_OUTPUT"
+
+      # Authenticate BEFORE any registry inspection: an existing package that
+      # isn't anonymously readable would otherwise look "free" and get overwritten.
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Refuse to overwrite existing published tags
+        env:
+          # Manifest-derived, but routed through env (not interpolated into the
+          # shell) so a value containing a quote can't break out — same rule as
+          # the dispatch input.
+          IMAGE: ${{ steps.img.outputs.image }}
+          REF: ${{ steps.img.outputs.ref }}
+          COMMIT: ${{ steps.img.outputs.commit }}
+        run: |
+          # Tags on GHCR are mutable; treat a publish as write-once. Fail if
+          # EITHER tag we push already exists (version or source-commit), so a
+          # rerun can't silently replace a released artifact.
+          for tag in "${REF}" "sha-${COMMIT}"; do
+            if docker manifest inspect "${IMAGE}:${tag}" >/dev/null 2>&1; then
+              echo "::error::${IMAGE}:${tag} already published — refusing to overwrite. Bump ref or use a repair path." >&2
+              exit 1
+            fi
+            echo "tag ${IMAGE}:${tag} is free"
+          done
+
+      - uses: docker/setup-qemu-action@v3 # arm64 builds under emulation (cgo)
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build & push (multi-arch, provenance + SBOM)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.img.outputs.context }}
+          platforms: ${{ steps.img.outputs.platforms }}
+          push: true
+          tags: |
+            ${{ steps.img.outputs.image }}:${{ steps.img.outputs.ref }}
+            ${{ steps.img.outputs.image }}:sha-${{ steps.img.outputs.commit }}
+          build-args: |
+            REPO=${{ steps.img.outputs.repo }}
+            REF=${{ steps.img.outputs.ref }}
+            COMMIT=${{ steps.img.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ steps.img.outputs.repo }}
+            org.opencontainers.image.version=${{ steps.img.outputs.ref }}
+            org.opencontainers.image.revision=${{ steps.img.outputs.commit }}
+            starskiff.image.publisher=github.com/2wheeh/starskiff
+          provenance: true
+          sbom: true
+
+      - name: Report manifest digest
+        env:
+          IMAGE: ${{ steps.img.outputs.image }}
+          REF: ${{ steps.img.outputs.ref }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "Published ${IMAGE}:${REF}"
+          echo "Manifest digest: ${DIGEST}"
+          echo ""
+          echo "Next: set config/images.json .images[].digest to this value, pin the"
+          echo "instance's *_DEFAULT_IMAGE to image@\${digest}, and verify anonymous pull +"
+          echo "that the manifest lists linux/amd64 and linux/arm64."
