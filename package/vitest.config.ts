@@ -22,7 +22,7 @@ export default defineConfig({
         // Self-contained: boots its own dedicated instance, no shared global-setup.
         test: {
           name: 'feature',
-          include: ['test/extra-validators.test.ts', 'test/marood.test.ts', 'test/xplad-docker.test.ts', 'test/evmd-docker.test.ts'],
+          include: ['test/extra-validators.test.ts', 'test/marood.test.ts', 'test/xplad-docker.test.ts', 'test/evmd-docker.test.ts', 'test/xrplevm-docker.test.ts', 'test/mantra-docker.test.ts'],
           fileParallelism: false,
         },
       },

@@ -40,10 +40,10 @@ Instance.simd({ binary: 'simd' });
 
 Naming a `binary` opts out of the container runtime entirely.
 
-For instances with **no default image** ([`gaiad`, `marood`](/docs/chains)) these aren't overrides but a requirement: constructing one without `image` or `binary` throws.
+For instances with **no default image** ([`marood`](/docs/chains)) these aren't overrides but a requirement: constructing one without `image` or `binary` throws.
 
 ```ts
-Instance.gaiad({ image: 'my-registry/gaiad:dev' }); // or { binary: 'gaiad' }
+Instance.marood({ image: 'my-registry/marood:private' }); // or { binary: 'marood' }
 ```
 
 ## Where the image comes from
@@ -59,9 +59,12 @@ An instance is container-first when it can source a node from an image. That ima
 | `wasmd`                        | Container       | Official `cosmwasm/wasmd` image, exact version tags     |
 | `xplad`                        | Container       | Official `ghcr.io/xpladev/xpla` image, tracks mainnet   |
 | `evmd`                         | Container       | **starskiff-published** image (cosmos/evm ships none)   |
+| [`gaiad`](/docs/chains)        | Container       | Official `ghcr.io/cosmos/gaia` image, tracks mainnet    |
+| [`mantra`](/docs/chains)       | Container       | Official `ghcr.io/mantra-chain/mantrachain` image       |
+| [`xrplevm`](/docs/chains)      | Container       | Official `peersyst/exrp` image (amd64-only)             |
 | `hermes`                       | Binary          | IBC relayer, run as a host process                      |
 
-`hermes` is the one deliberate binary default — a relayer that drives its own CLI and config on the host, not a chain node the container runtime boots. The remaining instances, [`gaiad` and `marood`](/docs/chains), have **no default at all**: gaia's official image lags mainnet and maroo's node source is private, so each requires an injected `image` or `binary`. starskiff's own CI provisions those binaries via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (except `marood`, which is private and never in that manifest). starskiff doesn't publish an image for every missing/stale upstream — only the deliberate allowlist in `config/images.json` (currently just evmd).
+`hermes` is the one deliberate binary default — a relayer that drives its own CLI and config on the host, not a chain node the container runtime boots; starskiff's own CI provisions it via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json). [`marood`](/docs/chains) has **no default at all** — its node source is private — so it requires an injected `image` or `binary` and is never in that manifest. starskiff doesn't publish an image for every missing/stale upstream — only the deliberate allowlist in `config/images.json` (currently just evmd).
 
 ### Images we publish
 

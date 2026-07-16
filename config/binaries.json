@@ -11,14 +11,6 @@
   ],
   "binaries": [
     {
-      "name": "gaiad",
-      "repo": "cosmos/gaia",
-      "ref": "v27.5.0",
-      "reason": "no default image on the instance — ghcr.io/cosmos/gaia lags mainnet (latest tags v25/v26 vs live v27.5.0); CI injects this binary",
-      "buildType": "prebuilt",
-      "asset": "gaiad-v27.5.0-linux-amd64"
-    },
-    {
       "name": "hermes",
       "repo": "informalsystems/hermes",
       "ref": "v1.13.3",

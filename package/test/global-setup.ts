@@ -49,8 +49,6 @@ export default async function setup({ provide }: TestProject) {
   });
 
   const gaia = Instance.gaiad({
-    // gaiad has no default image; CI provisions this binary (config/binaries.json).
-    binary: 'gaiad',
     chainId: 'ibc-cosmos-1',
     denom: 'uatom',
     rpcPort: 26957,

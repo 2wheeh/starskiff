@@ -3,13 +3,15 @@
 Beyond the [test nodes](/docs/instances), starskiff ships instance definitions for real networks' nodes. Lifecycle and parameters are identical — the only difference is where the node comes from, per the [image-first rule](/docs/guides/docker): an official image where a usable one exists, otherwise you inject the source.
 
 - **`Instance.xplad()`** — [XPLA](https://xpla.io). Runs the official `ghcr.io/xpladev/xpla` image (pinned to the mainnet version) by default. EVM + CosmWasm; exposes `evmPort` / `evmUrl`.
-- **`Instance.gaiad()`** — [Cosmos Hub](https://github.com/cosmos/gaia). No default image (the official one lags mainnet): pass `image` or `binary`. Useful as an IBC counterparty chain.
+- **`Instance.gaiad()`** — [Cosmos Hub](https://github.com/cosmos/gaia). Runs the official `ghcr.io/cosmos/gaia` image (tags track mainnet exactly) by default. Useful as an IBC counterparty chain.
+- **`Instance.mantra()`** — [MANTRA](https://www.mantrachain.io). Runs the official `ghcr.io/mantra-chain/mantrachain` image (multi-arch, pinned to mainnet) by default. cosmos/evm + CosmWasm; defaults mirror mainnet (`mantra-1`, `eth_chainId` 5888).
+- **`Instance.xrplevm()`** — [XRPL EVM](https://www.xrplevm.org). Runs the official `peersyst/exrp` image (pinned to mainnet) by default. cosmos/evm; defaults mirror mainnet (`xrplevm_1440000-1`, `eth_chainId` 1440000). The image is amd64-only — on arm64 hosts pre-pull with `docker pull --platform linux/amd64` (runs emulated) or pass a `binary`.
 - **`Instance.marood()`** — maroo. Private node source, so no default image: inject your own `binary`, or a private `image` where your CI allows it. `network: 'mainnet' | 'testnet'` presets select chain id + denoms; `testnet` matches viem's `marooTestnet`.
 
 ```ts
 Instance.xplad(); // official image out of the box
-Instance.gaiad({ binary: 'gaiad' }); // no default image — injection required
-Instance.marood({ binary: 'marood', network: 'testnet' });
+Instance.gaiad(); // official image out of the box
+Instance.marood({ binary: 'marood', network: 'testnet' }); // no default image — injection required
 ```
 
 Missing a chain? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.

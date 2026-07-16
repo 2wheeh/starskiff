@@ -86,7 +86,17 @@ function mountArgs({ homeDir }: DockerOptions): string[] {
   // relative to CWD *before* reading --home; if CWD is the image's default
   // (often `/`, not writable by --user) that panics. Anchoring CWD to the
   // writable mount makes any image work regardless of its baked-in WORKDIR.
-  return ['-v', `${homeDir}:${CONTAINER_HOME}`, '-e', `HOME=${CONTAINER_HOME}`, '-w', CONTAINER_HOME]
+  //
+  // TMPDIR likewise: CosmWasm-enabled binaries (e.g. mantrachaind) create a
+  // temp dir at command construction, and the image's /tmp may not be writable
+  // by --user. Pointing TMPDIR at the mounted home keeps temp files somewhere
+  // guaranteed-writable, and they're deleted with the home dir on stop().
+  return [
+    '-v', `${homeDir}:${CONTAINER_HOME}`,
+    '-e', `HOME=${CONTAINER_HOME}`,
+    '-e', `TMPDIR=${CONTAINER_HOME}`,
+    '-w', CONTAINER_HOME,
+  ]
 }
 
 /**
@@ -106,8 +116,13 @@ export function runArgs(
     ...(opts?.interactive ? ['-i'] : []),
     ...userArgs(),
     ...mountArgs(options),
+    // --entrypoint pins the executable to the chain binary regardless of the
+    // image's own ENTRYPOINT. Some images wrap the binary in `/bin/sh -ec`
+    // (e.g. peersyst/exrp), which would swallow every argument after the first;
+    // exec-form or empty entrypoints are unaffected by the override.
+    '--entrypoint', binary,
     options.image,
-    binary, ...args, '--home', CONTAINER_HOME,
+    ...args, '--home', CONTAINER_HOME,
   ]
 }
 
@@ -141,8 +156,10 @@ export function startArgs(
     ...userArgs(),
     ...mountArgs(options),
     ...opts.ports.flatMap((port) => ['-p', `127.0.0.1:${port}:${port}`]),
+    // See runArgs: pin the executable regardless of the image's ENTRYPOINT.
+    '--entrypoint', binary,
     options.image,
-    binary, ...args, '--home', CONTAINER_HOME,
+    ...args, '--home', CONTAINER_HOME,
   ]
 }
 
