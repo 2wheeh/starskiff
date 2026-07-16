@@ -4,25 +4,17 @@
     "container-first when it can source a node from an image — either the chain's own",
     "official image pinned to the live-network version (e.g. xplad), or one starskiff",
     "builds and publishes itself (config/images.json, e.g. evmd). The entries below source",
-    "from a binary instead — either permanently (no usable image) or transitionally (evmd,",
-    "until its published image exists), per the reason on each entry.",
+    "from a binary instead (no usable image, or not a chain node), per the reason on each.",
     "release-binaries.yml builds/uploads these once; ci.yml downloads them per run.",
     "Re-check each `reason` on bump — if the image situation changed, move the chain to a",
     "container-first instance (official image) or to config/images.json (we publish it)."
   ],
   "binaries": [
     {
-      "name": "evmd",
-      "repo": "cosmos/evm",
-      "ref": "v0.7.0",
-      "reason": "TRANSITIONAL binary lane: evmd is now container-first on the image we publish (config/images.json). Kept here only so the integration harness (global-setup pins binary:'evmd') stays green until that image is published+digest-pinned; drop this entry then.",
-      "buildType": "standard"
-    },
-    {
       "name": "gaiad",
       "repo": "cosmos/gaia",
       "ref": "v27.5.0",
-      "reason": "ghcr.io/cosmos/gaia lags mainnet (latest tags v25/v26 vs live v27.5.0)",
+      "reason": "no default image on the instance — ghcr.io/cosmos/gaia lags mainnet (latest tags v25/v26 vs live v27.5.0); CI injects this binary",
       "buildType": "prebuilt",
       "asset": "gaiad-v27.5.0-linux-amd64"
     },

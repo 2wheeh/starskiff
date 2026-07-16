@@ -105,7 +105,12 @@ jobs:
     name: Create release
     runs-on: ubuntu-latest
     needs: [prepare, build-cosmwasm, build-standard]
-    if: always() && !failure() && !cancelled()
+    # Skip when there's nothing source-built: with zero uploads the asset glob
+    # below would fail, and a binaries/latest release without assets is useless.
+    if: >-
+      always() && !failure() && !cancelled() &&
+      (fromJson(needs.prepare.outputs.cosmwasm).include[0] != null ||
+       fromJson(needs.prepare.outputs.standard).include[0] != null)
     steps:
       - uses: actions/checkout@v6
 

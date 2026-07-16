@@ -8,9 +8,9 @@ import { Instance, findFreePorts, EVMD_DEFAULT_IMAGE } from '../src/index.js';
  * the container path end to end against the same genesis patching (precompiles,
  * denom metadata, app mempool) the binary runtime uses.
  *
- * Requires the image to be present locally (built via images/evmd, or pulled
- * once published to GHCR). This is the default-image lane; global-setup covers
- * the {binary:'evmd'} escape hatch.
+ * The image is digest-pinned and pulled from GHCR on first use (anonymous pull
+ * — the package is public), so this doubles as a live check that the published
+ * artifact actually boots.
  */
 
 const TEST_MNEMONIC =

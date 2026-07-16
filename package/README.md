@@ -32,7 +32,7 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 
 Every instance is **image-first**: where a usable, version-pinned image exists it's the default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. Where none exists (`gaiad` — official image lags mainnet; `marood` — private node source) the source is **required**: constructing without `image` or `binary` throws. `hermes` is a relayer run as a host binary, not a chain node. See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
 
-> `evmd`'s default image is built by the `publish-images` workflow; until it's published and digest-pinned, run `Instance.evmd({ binary: 'evmd' })` or point `image` at a locally-built tag.
+> `evmd`'s default image is built from cosmos/evm source by the `publish-images` workflow and pinned by multi-arch manifest **digest** — the default always resolves to the exact published artifact.
 
 ## Install
 
