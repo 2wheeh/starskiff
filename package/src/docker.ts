@@ -63,6 +63,11 @@ export function runArgs(
  * cosmjs client works against the container exactly as it does against a local
  * process.
  *
+ * Published only on 127.0.0.1: this is a local test node with fully-funded
+ * genesis accounts, and everything that talks to it (health poll, cosmjs/viem,
+ * a host-run relayer) uses localhost — so there's no reason to expose it on all
+ * interfaces the way Docker's default `-p port:port` (0.0.0.0) would.
+ *
  * The container runs ATTACHED: `docker run` forwards its stdout/stderr to our
  * child process, so message buffering, event emitting and exit detection are
  * identical to the binary runtime.
@@ -78,7 +83,7 @@ export function startArgs(
     '--name', opts.name,
     ...userArgs(),
     ...mountArgs(options),
-    ...opts.ports.flatMap((port) => ['-p', `${port}:${port}`]),
+    ...opts.ports.flatMap((port) => ['-p', `127.0.0.1:${port}:${port}`]),
     options.image,
     binary, ...args, '--home', CONTAINER_HOME,
   ]
