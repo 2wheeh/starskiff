@@ -7,17 +7,17 @@
 - run: pnpm vitest run # image-backed instances just work; images pulled on demand
 ```
 
-`Instance` runs an image starskiff publishes — but until that image's [first publish](/docs/guides/docker#images-we-publish), it's provisioned as a binary too (the harness pins `binary: 'evmd'`); once published it joins the no-setup group.
+The rest of this guide covers the instances that **do** need provisioning — those without a usable default image, plus the `hermes` relayer:
 
-The rest of this guide covers the **exceptions** — instances with no usable upstream image, which stay binary-provisioned (chain nodes, plus the `hermes` relayer):
+| Instance | Why CI must provision it                                                             |
+| -------- | ------------------------------------------------------------------------------------ |
+| `gaiad`  | no default image (the official one lags mainnet) — [injection required](/docs/chains) |
+| `hermes` | an IBC relayer, run as a host binary next to the chains                              |
+| `evmd`   | _transitional_ — until its [published image](/docs/guides/docker#images-we-publish) exists, the harness pins `binary: 'evmd'` |
 
-| Instance | Why it's a binary exception                             |
-| -------- | ------------------------------------------------------- |
-| `gaiad`  | official image lags mainnet (v25/v26 vs live v27.5.0)   |
-| `hermes` | an IBC relayer, run as a host binary next to the chains |
-| `evmd`   | _transitional_ — until its published image exists       |
+(`marood` requires injection too, but its node source is private — provision its binary or a private image only where that's allowed.)
 
-Getting their binary onto the runner is the only CI-specific work. (A local `binary` or `image` override is the [escape hatch](/docs/guides/docker#escape-hatches) for development; starskiff's own CI uses the image defaults, provisioning a binary only for the exceptions above.)
+Getting a binary onto the runner is the only CI-specific work. starskiff's own CI uses the image defaults and provisions binaries only for the table above, via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json).
 
 ## Binary-provisioned exceptions
 

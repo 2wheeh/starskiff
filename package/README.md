@@ -24,13 +24,13 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 | ------------------- | -------------------------------------- | ----------------------------------------------- | ------------------------------ |
 | `Instance.wasmd()`  | image `cosmwasm/wasmd`                 | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC   |
 | `Instance.simd()`   | image `ghcr.io/cosmos/simapp`          | bank, staking, gov, mint                        | Lightweight Cosmos SDK testing |
-| `Instance.gaiad()`  | binary `gaiad`                         | Cosmos Hub (IBC)                                | IBC counterparty chain         |
+| `Instance.gaiad()`  | **required** — `image` or `binary`     | Cosmos Hub (IBC)                                | IBC counterparty chain         |
 | `Instance.xplad()`  | image `ghcr.io/xpladev/xpla`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
 | `Instance.evmd()`   | image `ghcr.io/2wheeh/starskiff/evmd`  | Cosmos SDK + **EVM** (cosmos/evm reference)     | Canonical cosmos-evm precompiles |
-| `Instance.marood()` | binary `marood`                        | Cosmos SDK + **EVM** + maroo modules            | maroo chain (viem `marooTestnet`) |
+| `Instance.marood()` | **required** — `image` or `binary` (private) | Cosmos SDK + **EVM** + maroo modules      | maroo chain (viem `marooTestnet`) |
 | `Instance.hermes()` | binary `hermes`                        | — (IBC relayer)                                 | Relaying between two instances |
 
-Image-backed instances run the node from a container by default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. Binary-default **chain** instances accept `image` too (`hermes` is a relayer, not a chain node, so it has no image runtime). See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
+Every instance is **image-first**: where a usable, version-pinned image exists it's the default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. Where none exists (`gaiad` — official image lags mainnet; `marood` — private node source) the source is **required**: constructing without `image` or `binary` throws. `hermes` is a relayer run as a host binary, not a chain node. See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
 
 > `evmd`'s default image is built by the `publish-images` workflow; until it's published and digest-pinned, run `Instance.evmd({ binary: 'evmd' })` or point `image` at a locally-built tag.
 
@@ -42,7 +42,7 @@ pnpm add -D starskiff
 
 ### Prerequisites
 
-Image-backed instances (`simd`, `wasmd`, `xplad`, `evmd`) need only a running **Docker** — the image is pulled on first use. Binary-backed instances (`gaiad`, `hermes`, and the private `marood`) need their executable on `PATH`; download an official release or build from source, e.g.:
+Image-backed instances (`simd`, `wasmd`, `xplad`, `evmd`) need only a running **Docker** — the image is pulled on first use. The `hermes` relayer needs its binary on `PATH`; `gaiad` and `marood` (no default image) need an injected source — an `image`, or a binary on `PATH`; download an official release or build from source, e.g.:
 
 ```bash
 # gaiad — official release binary

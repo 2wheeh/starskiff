@@ -34,7 +34,7 @@ bun add -D starskiff
 
 Most instances run from an image, so a running **Docker** is all you need — `simd`, `wasmd`, and `xplad` pull their image on first use (`evmd` too, once its [image is published](/docs/guides/docker#images-we-publish); until then run it from a binary).
 
-A few instances are binary-backed (the `gaiad` chain, the `hermes` relayer, and the private `marood`) — put their executable on `PATH`, e.g. from an official release:
+The exceptions: the `hermes` relayer runs as a host binary (put it on `PATH`), and [`gaiad` / `marood`](/docs/chains) have no default image — inject a source yourself, either an `image` or a `binary` on `PATH`, e.g. from an official release:
 
 ```bash
 gh release download v27.5.0 --repo cosmos/gaia --pattern "gaiad-v27.5.0-linux-amd64" --dir /tmp

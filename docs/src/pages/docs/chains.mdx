@@ -1,0 +1,15 @@
+# Chains [Real-network chain nodes]
+
+Beyond the [test nodes](/docs/instances), starskiff ships instance definitions for real networks' nodes. Lifecycle and parameters are identical — the only difference is where the node comes from, per the [image-first rule](/docs/guides/docker): an official image where a usable one exists, otherwise you inject the source.
+
+- **`Instance.xplad()`** — [XPLA](https://xpla.io). Runs the official `ghcr.io/xpladev/xpla` image (pinned to the mainnet version) by default. EVM + CosmWasm; exposes `evmPort` / `evmUrl`.
+- **`Instance.gaiad()`** — [Cosmos Hub](https://github.com/cosmos/gaia). No default image (the official one lags mainnet): pass `image` or `binary`. Useful as an IBC counterparty chain.
+- **`Instance.marood()`** — maroo. Private node source, so no default image: inject your own `binary`, or a private `image` where your CI allows it. `network: 'mainnet' | 'testnet'` presets select chain id + denoms; `testnet` matches viem's `marooTestnet`.
+
+```ts
+Instance.xplad(); // official image out of the box
+Instance.gaiad({ binary: 'gaiad' }); // no default image — injection required
+Instance.marood({ binary: 'marood', network: 'testnet' });
+```
+
+Missing a chain? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.

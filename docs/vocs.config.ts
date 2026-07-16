@@ -20,8 +20,10 @@ export default defineConfig({
       items: [
         { text: 'Overview', link: '/docs/instances' },
         { text: 'simd', link: '/docs/instances/simd' },
+        { text: 'wasmd', link: '/docs/instances/wasmd' },
         { text: 'evmd', link: '/docs/instances/evmd' },
         { text: 'hermes (relayer)', link: '/docs/instances/hermes' },
+        { text: 'Chains', link: '/docs/chains' },
       ],
     },
     {

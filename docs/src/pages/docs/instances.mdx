@@ -1,18 +1,27 @@
-# Instances [Prebuilt instance definitions for common Cosmos SDK chains]
+# Instances [Prebuilt instance definitions]
 
-Every instance wraps the same lifecycle (`start` / `stop` / `restart`, events, status) around a specific chain node — sourced from a container image or a binary. All accept [`CosmosChainParameters`](/docs/api/instance#parameters) plus chain-specific extras.
+Every instance wraps the same lifecycle (`start` / `stop` / `restart`, events, status) around a specific node. All accept [`CosmosChainParameters`](/docs/api/instance#parameters) plus chain-specific extras.
 
-| Instance             | Default source | Modules                                  | Use case                                     |
-| -------------------- | -------------- | ---------------------------------------- | -------------------------------------------- |
-| [`Instance.simd()`](/docs/instances/simd)     | image `ghcr.io/cosmos/simapp` | bank, staking, gov, mint                 | Lightweight Cosmos SDK testing               |
-| [`Instance.evmd()`](/docs/instances/evmd)     | image (starskiff-published) | Cosmos SDK + **EVM** (cosmos/evm reference) | Canonical cosmos-evm precompile testing, EVM JSON-RPC |
-| [`Instance.hermes()`](/docs/instances/hermes) | binary `hermes` | — (IBC relayer)                          | Relaying between two chain instances         |
+One source rule for every chain instance: **image-first**. Where a usable, version-pinned image exists, it's the instance's default; where none exists, the node source is **required** — pass `image` (a container image ref) or `binary` (a local executable on `PATH`). The `hermes` relayer is the exception: not a chain node, it runs as a host binary. See the [container runtime guide](/docs/guides/docker).
 
-The package also ships `Instance.wasmd()` (CosmWasm + IBC), `Instance.gaiad()` (Cosmos Hub), `Instance.xplad()` (XPLA), and `Instance.marood()` — their docs are TBD.
+## Test nodes
 
-## Choosing an instance
+Reference nodes built for testing, not live networks — what you'll boot in most suites:
 
-- **simd** for plain Cosmos SDK testing — runs from the official simapp image.
-- **evmd** when you need an EVM: it additionally exposes an `evmPort` / `evmUrl` (JSON-RPC) and uses `eth_secp256k1` keys at coin type 60.
+| Instance                                      | Default source                | Use case                                              |
+| --------------------------------------------- | ----------------------------- | ----------------------------------------------------- |
+| [`Instance.simd()`](/docs/instances/simd)     | image `ghcr.io/cosmos/simapp` | Lightweight Cosmos SDK testing                        |
+| [`Instance.wasmd()`](/docs/instances/wasmd)   | image `cosmwasm/wasmd`        | CosmWasm contracts + IBC                              |
+| [`Instance.evmd()`](/docs/instances/evmd)     | image (starskiff-published)   | Canonical cosmos-evm precompile testing, EVM JSON-RPC |
+| [`Instance.hermes()`](/docs/instances/hermes) | binary `hermes` (host relayer) | Relaying between two chain instances                  |
+
+- **simd** for plain Cosmos SDK testing.
+- **wasmd** when you need CosmWasm or IBC (a superset of simd).
+- **evmd** when you need an EVM: it additionally exposes `evmPort` / `evmUrl` (JSON-RPC) and uses `eth_secp256k1` keys at coin type 60.
 - **hermes** to relay IBC packets between two running chain instances.
-- Your chain isn't here? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.
+
+## Chain nodes
+
+Nodes of real networks (XPLA, Cosmos Hub, maroo) share the exact same lifecycle and parameters — see [Chains](/docs/chains).
+
+Your chain isn't covered? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.
