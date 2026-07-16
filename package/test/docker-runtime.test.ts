@@ -1,29 +1,72 @@
 import { describe, it, expect } from 'vitest'
 import { resolveInstanceImage } from '../src/docker.js'
-import { SIMD_DEFAULT_IMAGE, WASMD_DEFAULT_IMAGE, XPLA_DEFAULT_IMAGE, EVMD_DEFAULT_IMAGE } from '../src/index.js'
+import {
+  Instance,
+  SIMD_DEFAULT_IMAGE,
+  WASMD_DEFAULT_IMAGE,
+  XPLA_DEFAULT_IMAGE,
+  EVMD_DEFAULT_IMAGE,
+} from '../src/index.js'
 
 // Unit coverage for the shared "default artifact policy" resolver every
-// container-first instance (wasmd, xplad, evmd) routes through. No node boots.
+// instance routes through. No node boots.
 describe('resolveInstanceImage (default artifact policy)', () => {
   it('returns the default image when neither image nor binary is passed', () => {
-    expect(resolveInstanceImage({}, 'default/img:1')).toBe('default/img:1')
+    expect(resolveInstanceImage('x', {}, 'default/img:1')).toBe('default/img:1')
   })
 
   it('returns an explicitly passed image', () => {
-    expect(resolveInstanceImage({ image: 'my/img:2' }, 'default/img:1')).toBe('my/img:2')
+    expect(resolveInstanceImage('x', { image: 'my/img:2' }, 'default/img:1')).toBe('my/img:2')
   })
 
   it('opts out of docker (returns undefined) when binary is passed', () => {
-    expect(resolveInstanceImage({ binary: 'wasmd' }, 'default/img:1')).toBeUndefined()
+    expect(resolveInstanceImage('x', { binary: 'wasmd' }, 'default/img:1')).toBeUndefined()
   })
 
   it('throws when both image and binary are passed (mutually exclusive)', () => {
-    expect(() => resolveInstanceImage({ image: 'x', binary: 'y' }, 'd')).toThrow(/not both/)
+    expect(() => resolveInstanceImage('x', { image: 'a', binary: 'b' }, 'd')).toThrow(/not both/)
   })
 
   it('rejects an empty or explicitly-undefined image instead of silently falling through', () => {
-    expect(() => resolveInstanceImage({ image: '' }, 'd')).toThrow(/non-empty/)
-    expect(() => resolveInstanceImage({ image: undefined }, 'd')).toThrow(/non-empty/)
+    expect(() => resolveInstanceImage('x', { image: '' }, 'd')).toThrow(/non-empty/)
+    expect(() => resolveInstanceImage('x', { image: undefined }, 'd')).toThrow(/non-empty/)
+  })
+
+  it('rejects an empty or explicitly-undefined binary instead of silently opting out', () => {
+    expect(() => resolveInstanceImage('x', { binary: '' }, 'd')).toThrow(/non-empty/)
+    expect(() => resolveInstanceImage('x', { binary: undefined }, 'd')).toThrow(/non-empty/)
+    // and it must not bypass required injection on no-default instances
+    expect(() => resolveInstanceImage('gaiad', { binary: undefined })).toThrow(/non-empty/)
+  })
+
+  it('requires injection when the instance has no default image', () => {
+    expect(() => resolveInstanceImage('gaiad', {})).toThrow(/gaiad has no default image/)
+    expect(resolveInstanceImage('gaiad', { binary: 'gaiad' })).toBeUndefined()
+    expect(resolveInstanceImage('gaiad', { image: 'my/gaia:v27' })).toBe('my/gaia:v27')
+  })
+})
+
+// Instances without a usable upstream image must fail fast at construction —
+// no implicit binary fallback.
+describe('injection-required instances', () => {
+  it('gaiad throws without an injected image or binary', () => {
+    expect(() => Instance.gaiad()).toThrow(/no default image/)
+    expect(() => Instance.gaiad({ chainId: 'hub-test-1' })).toThrow(/no default image/)
+  })
+
+  it('marood throws without an injected image or binary', () => {
+    expect(() => Instance.marood()).toThrow(/no default image/)
+  })
+
+  it('an explicitly-undefined binary does not bypass required injection', () => {
+    expect(() => Instance.gaiad({ binary: undefined })).toThrow(/non-empty/)
+    expect(() => Instance.marood({ binary: undefined })).toThrow(/non-empty/)
+  })
+
+  it('gaiad/marood construct with an injected source', () => {
+    expect(Instance.gaiad({ binary: 'gaiad' }).name).toBe('gaiad')
+    expect(Instance.marood({ binary: 'marood' }).name).toBe('marood')
+    expect(Instance.gaiad({ image: 'my/gaia:v27.5.0' }).name).toBe('gaiad')
   })
 })
 

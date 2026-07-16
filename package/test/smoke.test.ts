@@ -71,8 +71,12 @@ describe('smoke test (built output)', () => {
   })
 
   describe('Instance.gaiad', () => {
-    it('creates an instance with default values', () => {
-      const instance = Instance.gaiad()
+    it('throws without an injected image or binary (no default image)', () => {
+      expect(() => Instance.gaiad()).toThrow(/no default image/)
+    })
+
+    it('creates an instance when a binary is injected', () => {
+      const instance = Instance.gaiad({ binary: 'gaiad' })
       expect(instance.name).toBe('gaiad')
       expect(instance.host).toBe('localhost')
       expect(instance.port).toBe(26657)

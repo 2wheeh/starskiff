@@ -44,7 +44,7 @@ export type WasmdParameters = CosmosChainParameters & {
 export const wasmd = Instance.define((parameters?: WasmdParameters) => {
   const params = parameters || {}
   const { binary = 'wasmd', ...rest } = params
-  const image = resolveInstanceImage(params, WASMD_DEFAULT_IMAGE)
+  const image = resolveInstanceImage('wasmd', params, WASMD_DEFAULT_IMAGE)
   // image after ...rest so the resolved value wins over any stray image key.
   return cosmosBase({ binary, name: 'wasmd', ...rest, image })
 })

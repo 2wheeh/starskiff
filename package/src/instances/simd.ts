@@ -40,6 +40,6 @@ export type SimdParameters = CosmosChainParameters & {
 export const simd = Instance.define((parameters?: SimdParameters) => {
   const params = parameters || {}
   const { binary = 'simd', ...rest } = params
-  const image = resolveInstanceImage(params, SIMD_DEFAULT_IMAGE)
+  const image = resolveInstanceImage('simd', params, SIMD_DEFAULT_IMAGE)
   return cosmosBase({ binary, name: 'simd', ...rest, image })
 })

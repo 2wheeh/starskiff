@@ -81,7 +81,7 @@ export const xplad = Instance.define((parameters?: XpladParameters) => {
   // Container-first, with both escape hatches: an explicit `image` selects the
   // container runtime, naming a `binary` opts out of docker. `binary` still
   // carries the in-image executable name for the container runtime.
-  const image = resolveInstanceImage(params, XPLA_DEFAULT_IMAGE)
+  const image = resolveInstanceImage('xplad', params, XPLA_DEFAULT_IMAGE)
 
   // Preserve the three-state semantics of `activeStaticPrecompiles`:
   // omitted → xpla default; explicit `undefined` → pass through (binary default);

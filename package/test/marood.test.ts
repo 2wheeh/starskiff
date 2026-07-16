@@ -29,6 +29,7 @@ describe('marood testnet preset (viem marooTestnet)', () => {
 
   beforeAll(async () => {
     instance = Instance.marood({
+      binary: 'marood', // no default image (private node source)
       ...(await findFreePorts({ evm: true })),
       accounts: [
         // coins must be alphabetically sorted: atmaroo < atokrw
@@ -119,6 +120,7 @@ describe('marood mainnet preset', () => {
 
   beforeAll(async () => {
     instance = Instance.marood({
+      binary: 'marood', // no default image (private node source)
       network: 'mainnet',
       ...(await findFreePorts({ evm: true })),
       accounts: [

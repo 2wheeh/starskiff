@@ -95,7 +95,7 @@ export const evmd = Instance.define((parameters?: EvmdParameters) => {
     ...rest
   } = params
 
-  const image = resolveInstanceImage(params, EVMD_DEFAULT_IMAGE)
+  const image = resolveInstanceImage('evmd', params, EVMD_DEFAULT_IMAGE)
 
   // Preserve the three-state semantics of `activeStaticPrecompiles`:
   // omitted → evmd default (full set); explicit `undefined` → pass through
