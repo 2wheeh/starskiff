@@ -72,19 +72,25 @@ jobs:
 
           # read line-by-line: `for x in $(jq ...)` word-splits on spaces, which
           # shreds any JSON field that contains them (e.g. binaries.json `reason`).
-          # Feed via a here-string so `set -e` failures abort the job (a piped
-          # `while` runs in a subshell and can swallow them).
-          while IFS= read -r name; do
+          # Use a pipeline (not `< <(...)`): with pipefail a jq failure fails the
+          # pipeline and aborts the job; process substitution runs jq async and
+          # its exit status would be ignored by set -e.
+          jq -r '.binaries[] | select(.buildType != "prebuilt") | .name' config/binaries.json \
+          | while IFS= read -r name; do
             gunzip -c "/tmp/${name}-linux-amd64.gz" > "/usr/local/bin/${name}"
             chmod +x "/usr/local/bin/${name}"
-          done < <(jq -r '.binaries[] | select(.buildType != "prebuilt") | .name' config/binaries.json)
+          done
 
       - name: Download prebuilt binaries
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          while IFS= read -r row; do
+          # Pipeline (not `< <(...)`) so pipefail propagates a jq failure and
+          # aborts the job; process substitution would run jq async with its
+          # exit status ignored by set -e.
+          jq -c '.binaries[] | select(.buildType == "prebuilt")' config/binaries.json \
+          | while IFS= read -r row; do
             name=$(jq -r '.name' <<<"$row")
             repo=$(jq -r '.repo' <<<"$row")
             ref=$(jq -r '.ref' <<<"$row")
@@ -101,7 +107,7 @@ jobs:
 
             mv "/tmp/${name}" "/usr/local/bin/${name}"
             chmod +x "/usr/local/bin/${name}"
-          done < <(jq -c '.binaries[] | select(.buildType == "prebuilt")' config/binaries.json)
+          done
 
       - name: Integration tests
         run: pnpm test:integration
