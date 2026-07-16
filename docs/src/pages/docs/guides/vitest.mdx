@@ -1,0 +1,65 @@
+# vitest Setup [Share one instance across a test suite with globalSetup]
+
+Boot the instance once in a [globalSetup](https://vitest.dev/config/#globalsetup), pass its URLs to tests via `provide`/`inject`, and stop it in the returned teardown:
+
+```ts
+// test/global-setup.ts
+import type { TestProject } from 'vitest/node';
+import { Instance } from 'starskiff';
+
+export default async function setup({ provide }: TestProject) {
+  const instance = Instance.simd({
+    chainId: 'test-1',
+    accounts: [{ mnemonic: '...', coins: '1000000000stake' }],
+  });
+  await instance.start();
+
+  provide('rpcUrl', instance.rpcUrl);
+
+  return () => instance.stop();
+}
+
+declare module 'vitest' {
+  export interface ProvidedContext {
+    rpcUrl: string;
+  }
+}
+```
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globalSetup: './test/global-setup.ts',
+  },
+});
+```
+
+```ts
+// test/bank.test.ts
+import { it } from 'vitest';
+import { inject } from 'vitest';
+import { StargateClient } from '@cosmjs/stargate';
+
+const rpcUrl = inject('rpcUrl');
+
+it('queries balance', async () => {
+  const client = await StargateClient.connect(rpcUrl);
+  const balance = await client.getBalance(address, 'stake');
+  // ...
+});
+```
+
+## Skipping when the binary is missing
+
+Instances need their chain binary on `PATH`. If your CI doesn't always have it, gate the project or suite — for example with a vitest [workspace project](https://vitest.dev/guide/projects) that only runs integration tests when binaries exist, or `describe.skipIf`.
+
+## Timeouts
+
+First start includes chain `init` + first block (typically 3–5s locally). Give `globalSetup`-heavy suites headroom, and pass a per-instance timeout for slow environments:
+
+```ts
+const instance = Instance.simd({ chainId: 'test-1' }, { timeout: 120_000 });
+```

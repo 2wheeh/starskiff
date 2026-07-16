@@ -1,0 +1,51 @@
+# wasmd [CosmWasm + IBC — the recommended default]
+
+`Instance.wasmd()` boots a [wasmd](https://github.com/CosmWasm/wasmd) node: Cosmos SDK + IBC + CosmWasm. It's a superset of `simd`, so it's the right default unless you specifically need a lighter binary.
+
+## Install the binary
+
+```bash
+git clone --depth 1 https://github.com/CosmWasm/wasmd.git /tmp/wasmd
+cd /tmp/wasmd && go build -o ~/go/bin/wasmd ./cmd/wasmd/
+```
+
+## Usage
+
+```ts
+import { Instance } from 'starskiff';
+
+const instance = Instance.wasmd({
+  chainId: 'wasm-test-1',
+  prefix: 'wasm',
+  accounts: [{ mnemonic: '...', coins: '1000000000stake', name: 'alice' }],
+});
+await instance.start();
+```
+
+## CosmWasm contract testing
+
+```ts
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import { GasPrice } from '@cosmjs/stargate';
+
+const client = await SigningCosmWasmClient.connectWithSigner(instance.rpcUrl, wallet, {
+  gasPrice: GasPrice.fromString('0stake'),
+});
+
+// Upload, instantiate, execute
+const { codeId } = await client.upload(address, wasmBytecode, 'auto');
+const { contractAddress } = await client.instantiate(address, codeId, initMsg, 'label', 'auto');
+const result = await client.execute(address, contractAddress, executeMsg, 'auto');
+```
+
+## Parameters
+
+`WasmdParameters` extends [`CosmosChainParameters`](/docs/api/instance#parameters) with:
+
+| Parameter | Type     | Default   | Description        |
+| --------- | -------- | --------- | ------------------ |
+| `binary`  | `string` | `"wasmd"` | Path to the binary |
+
+## IBC
+
+wasmd ships IBC, so a pair of wasmd instances plus [`Instance.hermes()`](/docs/instances/hermes) gives you a full local IBC setup — see the [IBC guide](/docs/guides/ibc).

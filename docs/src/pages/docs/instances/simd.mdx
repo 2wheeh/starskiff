@@ -1,0 +1,31 @@
+# simd [Cosmos SDK simapp — lightweight testing]
+
+`Instance.simd()` boots the Cosmos SDK reference app ([simapp](https://github.com/cosmos/cosmos-sdk/tree/main/simapp)): bank, staking, gov, mint. Use it when you don't need CosmWasm or IBC.
+
+## Install the binary
+
+```bash
+git clone --depth 1 https://github.com/cosmos/cosmos-sdk.git /tmp/cosmos-sdk
+cd /tmp/cosmos-sdk/simapp && go build -o ~/go/bin/simd ./simd/
+```
+
+## Usage
+
+```ts
+import { Instance } from 'starskiff';
+
+const instance = Instance.simd({
+  chainId: 'test-1',
+  denom: 'stake',
+  accounts: [{ mnemonic: '...', coins: '1000000000stake', name: 'alice' }],
+});
+await instance.start();
+```
+
+## Parameters
+
+`SimdParameters` extends [`CosmosChainParameters`](/docs/api/instance#parameters) with:
+
+| Parameter | Type     | Default  | Description        |
+| --------- | -------- | -------- | ------------------ |
+| `binary`  | `string` | `"simd"` | Path to the binary |

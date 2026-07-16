@@ -1,0 +1,112 @@
+# CI Setup [Run starskiff tests on GitHub Actions]
+
+starskiff instances need their chain binaries on `PATH` — the only CI-specific work is getting those binaries onto the runner.
+
+**Use prebuilt binaries.** A chain binary is a large Go program; compiling one from source takes minutes of CI time per run — at that point you've spent the startup advantage that makes starskiff worth using. Build (or download) each binary **once**, store it where CI can fetch it, and every test run afterwards pays only a seconds-long download.
+
+## Recommended: prebuilt binaries
+
+Store binaries as GitHub release assets and download them at the start of the job. This is what starskiff's own CI does — versions are pinned in a config file, a manual [`release-binaries.yml`](https://github.com/2wheeh/starskiff/blob/main/.github/workflows/release-binaries.yml) workflow builds and uploads them once, and [`ci.yml`](https://github.com/2wheeh/starskiff/blob/main/.github/workflows/ci.yml) downloads them per run:
+
+```yaml
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Download chain binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "binaries/latest" --repo <owner>/<repo> \
+            --pattern "simd-linux-amd64.gz" --dir /tmp
+          gunzip -c /tmp/simd-linux-amd64.gz > /usr/local/bin/simd
+          chmod +x /usr/local/bin/simd
+          simd version
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vitest run
+```
+
+Some chains publish official release binaries you can download straight from upstream instead of building anything (e.g. gaia, hermes):
+
+```yaml
+      - name: Download hermes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.13.3 --repo informalsystems/hermes \
+            --pattern "hermes-v1.13.3-x86_64-unknown-linux-gnu.tar.gz" --dir /tmp
+          tar -xzf /tmp/hermes-*.tar.gz -C /tmp
+          mv /tmp/hermes /usr/local/bin/hermes
+```
+
+:::note
+Chain binaries are platform-specific — assets built for `linux-amd64` won't run on macOS runners or `arm64`. Match the asset to your runner, and rebuild assets when you bump pinned chain versions.
+:::
+
+`actions/cache` keyed on the binary version works too if you'd rather not manage a release.
+
+## Alternative: build from source per run
+
+Simplest to set up and always reproducible, but each cold run spends minutes in the Go compiler (the Go module/build cache softens repeat runs):
+
+```yaml
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build simd
+        run: |
+          git clone --depth 1 https://github.com/cosmos/cosmos-sdk.git /tmp/cosmos-sdk
+          cd /tmp/cosmos-sdk/simapp && go build -o /usr/local/bin/simd ./simd/
+```
+
+Reasonable for a repo that runs CI rarely, or as the bootstrap step that produces the prebuilt assets above.
+
+## Split unit and integration jobs
+
+Keep binary-free tests runnable everywhere by splitting vitest [projects](https://vitest.dev/guide/projects) — a `unit` project that never touches a chain, and an `integration` project that boots instances. CI then runs `unit` on every push and gates `integration` behind the binary-download job:
+
+```yaml
+jobs:
+  ci:
+    steps:
+      # ... setup, no binaries needed
+      - run: pnpm vitest run --project unit
+
+  integration:
+    needs: ci
+    steps:
+      # ... setup + binary download
+      - run: pnpm vitest run --project integration
+```
+
+## Timeouts
+
+CI runners are slower than laptops — first block can take noticeably longer than the local 3–5s. Bump the instance timeout in CI:
+
+```ts
+const instance = Instance.simd(
+  { chainId: 'test-1' },
+  { timeout: process.env.CI ? 120_000 : 60_000 },
+);
+```
+
+The same applies to vitest's `hookTimeout` if you boot instances in `beforeAll`/`globalSetup`.

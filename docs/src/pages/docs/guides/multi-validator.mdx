@@ -1,0 +1,23 @@
+# Multiple Validators [Boot a chain with more than one bonded validator]
+
+Some tests need multiple bonded validators at genesis — redelegation, validator set queries, slashing scenarios. The `extraValidators` parameter creates N additional validators (keys `validator-1`, `validator-2`, …), each with its own consensus key, funded with `validatorBalance` and self-delegating a computed stake:
+
+```ts
+import { Instance } from 'starskiff';
+
+const instance = Instance.simd({
+  chainId: 'multi-val-1',
+  extraValidators: 2, // 1 default + 2 extra = 3 bonded validators
+});
+await instance.start();
+```
+
+## How stake is sized
+
+Only the primary validator runs a live node — the extra validators are bonded but never sign blocks. If their combined voting power reached 1/3, CometBFT would halt at genesis. starskiff sizes each extra validator's self-delegation as `validatorStake / (4 × extraValidators)`, which keeps the primary above a 2/3 supermajority with a 2× safety margin for any `extraValidators >= 1`.
+
+If the computed per-validator stake rounds to zero (huge `extraValidators` against a small `validatorStake`), instance creation throws — increase `validatorStake` or reduce `extraValidators`.
+
+## Caveat: downtime jailing
+
+Because the extra validators never sign, the chain will eventually jail them for downtime. Run assertions that need all validators bonded **right after start** — or boot a dedicated short-lived instance for them.

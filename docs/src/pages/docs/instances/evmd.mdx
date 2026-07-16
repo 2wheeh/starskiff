@@ -1,0 +1,56 @@
+# evmd [cosmos/evm reference chain]
+
+`Instance.evmd()` boots [cosmos/evm](https://github.com/cosmos/evm)'s reference chain (`./cmd/evmd`). Its precompiles sit at their canonical `x/vm` addresses (bank at `0x…0804`, staking at `0x…0800`, …), which makes it the most faithful target for testing the standard cosmos-evm precompile ABIs.
+
+## Usage
+
+```ts
+import { Instance } from 'starskiff';
+
+const instance = Instance.evmd({
+  accounts: [{ mnemonic: '...', coins: '1000000000000000000000atest' }],
+});
+await instance.start();
+
+// eth_chainId → 262144 (x/vm DefaultEVMChainID)
+```
+
+## Defaults
+
+| Parameter          | Default             |
+| ------------------ | ------------------- |
+| `binary`           | `"evmd"`            |
+| `chainId`          | `"cosmos_262144-1"` |
+| `denom`            | `"atest"`           |
+| `prefix`           | `"cosmos"`          |
+| `validatorBalance` | `1e23`              |
+| `validatorStake`   | `1e22`              |
+| `evmPort`          | `8545`              |
+
+## What the instance patches
+
+A plain `evmd init` produces a genesis denominated entirely in `stake`, with an **empty** precompile set and no bank denom metadata. The instance fills those gaps:
+
+- **Precompiles**: enables the full `x/vm` available set (see below).
+- **Denom metadata**: writes an 18-decimal bank metadata entry for the native denom (required by the EVM coin-info initialization).
+- **`evm_denom`**: aligned with the instance `denom`.
+- **Mempool**: sets CometBFT's `mempool.type = "app"` (evmd uses the app-side EVM mempool).
+- **`--chain-id` on start**: Cosmos SDK ≥ v0.54 validates the baseapp chain id against genesis on InitChain.
+
+## Precompiles
+
+`EVMD_DEFAULT_PRECOMPILES` mirrors `x/vm`'s `AvailableStaticPrecompiles` and is written to `evm.params.active_static_precompiles` by default, so the bank, staking, distribution and gov precompiles work out of the box. The `activeStaticPrecompiles` parameter has three-state semantics:
+
+- **omitted** → the instance's default set
+- **explicit `undefined`** → binary default (genesis untouched — empty for evmd)
+- **`[]` / `[...]`** → disable all / overwrite
+
+```ts
+import { Instance, EVMD_DEFAULT_PRECOMPILES } from 'starskiff';
+
+const instance = Instance.evmd({
+  activeStaticPrecompiles: [...EVMD_DEFAULT_PRECOMPILES],
+});
+```
+
+The list is normalized (lowercased, byte-order sorted) before it's written — cosmos-evm genesis validation requires sorted addresses.

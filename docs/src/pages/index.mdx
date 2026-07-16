@@ -1,0 +1,45 @@
+---
+title: starskiff - Cosmos SDK test instances
+layout: minimal
+showLogo: false
+description: Real Cosmos SDK nodes as ephemeral test instances — child processes, no Docker, no Kubernetes.
+---
+
+import { HomePage } from 'vocs';
+
+<HomePage.Root>
+  <HomePage.Logo />
+  <HomePage.Tagline>
+    Real Cosmos SDK nodes as ephemeral test instances — child processes, no Docker, no Kubernetes.
+  </HomePage.Tagline>
+  <HomePage.InstallPackage name="starskiff" type="install" />
+  <HomePage.Buttons>
+    <HomePage.Button href="/docs/getting-started" variant="accent">
+      Get started
+    </HomePage.Button>
+    <HomePage.Button href="https://github.com/2wheeh/starskiff">GitHub</HomePage.Button>
+  </HomePage.Buttons>
+</HomePage.Root>
+
+# Overview
+
+```ts
+import { Instance, testAccounts } from 'starskiff';
+
+const [alice] = testAccounts;
+
+const instance = Instance.simd({
+  chainId: 'test-1',
+  accounts: [{ mnemonic: alice.mnemonic, coins: '1000000000stake', name: alice.name }],
+});
+
+await instance.start(); // real simd node, first block in seconds
+
+// instance.rpcUrl  → http://localhost:26657 (CometBFT RPC)
+// instance.grpcUrl → http://localhost:9090  (gRPC)
+// instance.apiUrl  → http://localhost:1317  (REST)
+
+await instance.stop(); // node killed, temp home dir removed
+```
+
+Not a mock — the actual Go binary, booted with a patched genesis, funded accounts, and health-checked until the first block. Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum).

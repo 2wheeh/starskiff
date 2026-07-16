@@ -1,0 +1,81 @@
+# Instance [Lifecycle, parameters, events, and URL getters]
+
+Every instance is created by a definition (`Instance.simd(parameters?, options?)`, …) and shares the same lifecycle API.
+
+## Parameters
+
+Shared by all Cosmos chain instances (`CosmosChainParameters`):
+
+| Parameter          | Type              | Default           | Description                                    |
+| ------------------ | ----------------- | ----------------- | ---------------------------------------------- |
+| `chainId`          | `string`          | `"starskiff-1"`   | Chain ID                                       |
+| `denom`            | `string`          | `"stake"`         | Default denom (bond, mint, gov, fees)          |
+| `prefix`           | `string`          | `"cosmos"`        | Bech32 address prefix                          |
+| `accounts`         | `CosmosAccount[]` | `[]`              | [Genesis accounts](/docs/guides/accounts)      |
+| `minimumGasPrices` | `string`          | `"0{denom}"`      | app.toml `minimum-gas-prices`                  |
+| `validatorBalance` | `string`          | `"100000000000"`  | Validator funding (amount only, denom appended)|
+| `validatorStake`   | `string`          | `"10000000"`      | Validator self-delegation                      |
+| `extraValidators`  | `number`          | `0`               | [Additional bonded validators](/docs/guides/multi-validator) |
+| `rpcPort`          | `number`          | `26657`           | CometBFT RPC port                              |
+| `grpcPort`         | `number`          | `9090`            | gRPC port                                      |
+| `apiPort`          | `number`          | `1317`            | REST API port                                  |
+| `p2pPort`          | `number`          | `26656`           | P2P port                                       |
+| `grpcWebPort`      | `number`          | `9091`            | gRPC-Web port                                  |
+| `pprofPort`        | `number`          | `6060`            | pprof port                                     |
+| `relayerHints`     | `CosmosRelayerHints` | instance-specific | Hermes address-derivation hints             |
+
+EVM chains (`CosmosEvmChainParameters`) add:
+
+| Parameter                 | Type       | Default | Description                                       |
+| ------------------------- | ---------- | ------- | ------------------------------------------------- |
+| `evmPort`                 | `number`   | `8545`  | EVM JSON-RPC port                                 |
+| `activeStaticPrecompiles` | `string[]` | instance-specific | `evm.params.active_static_precompiles` — [three-state semantics](/docs/instances/evmd#precompiles) |
+
+## Options (second argument)
+
+| Option          | Type     | Default | Description                        |
+| --------------- | -------- | ------- | ---------------------------------- |
+| `messageBuffer` | `number` | `20`    | Max messages stored in memory      |
+| `timeout`       | `number` | `60000` | Start/stop timeout in milliseconds |
+
+```ts
+const instance = Instance.simd({ chainId: 'test-1' }, { timeout: 30_000 });
+```
+
+## Methods
+
+| Method                | Description                                                            |
+| --------------------- | ---------------------------------------------------------------------- |
+| `start()`             | Boot the node; resolves after the first block (EVM chains also wait for JSON-RPC). Returns a stop function. |
+| `stop()`              | Kill the process and delete the temp home directory.                   |
+| `restart()`           | Stop then start.                                                       |
+| `on(event, handler)`  | Listen to events: `message`, `stdout`, `stderr`, `listening`, `exit`.  |
+| `off(event, handler)` | Remove a listener.                                                     |
+
+## Properties
+
+| Property   | Type     | Description                                                              |
+| ---------- | -------- | ------------------------------------------------------------------------ |
+| `status`   | `string` | `idle` / `starting` / `started` / `stopping` / `stopped` / `restarting`  |
+| `host`     | `string` | Host (default `localhost`)                                                |
+| `port`     | `number` | RPC port                                                                  |
+| `name`     | `string` | Instance name                                                             |
+| `chainId` / `denom` / `prefix` | `string` | Resolved chain config                                 |
+| `messages` | `object` | `.get()` returns buffered output lines, `.clear()` clears them            |
+
+## URL getters
+
+No more templating `http://localhost:${instance.port}` by hand:
+
+| Property  | Description                                                    |
+| --------- | -------------------------------------------------------------- |
+| `rpcUrl`  | `http://{host}:{port}` — CometBFT RPC                           |
+| `grpcUrl` | `http://{host}:{grpcPort}` — gRPC                               |
+| `apiUrl`  | `http://{host}:{apiPort}` — REST (Cosmos SDK API)               |
+| `evmUrl`  | `http://{host}:{evmPort}` — EVM JSON-RPC (EVM instances only)   |
+
+```ts
+import { StargateClient } from '@cosmjs/stargate';
+
+const client = await StargateClient.connect(instance.rpcUrl);
+```

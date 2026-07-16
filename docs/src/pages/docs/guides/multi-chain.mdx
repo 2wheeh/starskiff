@@ -1,0 +1,38 @@
+# Multi-Chain & Ports [Run several instances side by side]
+
+Every instance binds six ports (RPC, gRPC, REST, P2P, gRPC-Web, pprof) — EVM chains add a seventh. Defaults collide as soon as you run a second chain, and hand-assigning ports gets tedious and error-prone. Use `findFreePorts()`:
+
+```ts
+import { findFreePorts, Instance } from 'starskiff';
+
+const [ports1, ports2] = await Promise.all([findFreePorts(), findFreePorts()]);
+
+const chain1 = Instance.simd({ chainId: 'chain-1', ...ports1 });
+const chain2 = Instance.simd({ chainId: 'chain-2', ...ports2 });
+
+await Promise.all([chain1.start(), chain2.start()]);
+```
+
+Each call returns a `PortSet` of distinct, currently-free ports:
+
+| Key           | Instance parameter it fills |
+| ------------- | --------------------------- |
+| `rpcPort`     | CometBFT RPC                |
+| `grpcPort`    | gRPC                        |
+| `apiPort`     | REST API                    |
+| `p2pPort`     | P2P                         |
+| `grpcWebPort` | gRPC-Web                    |
+| `pprofPort`   | pprof                       |
+| `evmPort`     | EVM JSON-RPC — only with `{ evm: true }` |
+
+```ts
+// EVM-enabled chains (e.g. evmd) need the extra port:
+const ports = await findFreePorts({ evm: true });
+const chain = Instance.evmd({ ...ports });
+```
+
+Don't hardcode URLs afterwards — the instance exposes them: `instance.rpcUrl`, `instance.grpcUrl`, `instance.apiUrl`, and `instance.evmUrl` on EVM chains.
+
+:::note
+TOCTOU caveat: a port is only guaranteed free at grab time. Nothing stops another process from binding it before the instance actually starts — rare in practice, but not impossible under heavy concurrent test runs.
+:::

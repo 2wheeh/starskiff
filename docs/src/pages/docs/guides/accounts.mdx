@@ -1,0 +1,48 @@
+# Test Accounts [Fund genesis accounts and reuse well-known mnemonics]
+
+## Funding accounts at genesis
+
+Every Cosmos instance accepts an `accounts` array. Each entry recovers a key from a mnemonic into the node's test keyring and funds it in genesis:
+
+```ts
+import { Instance } from 'starskiff';
+
+const instance = Instance.simd({
+  accounts: [
+    { mnemonic: '...', coins: '1000000000stake', name: 'alice' },
+    { mnemonic: '...', coins: '500000000stake,100token', name: 'bob' },
+  ],
+});
+```
+
+| Field      | Type     | Description                                             |
+| ---------- | -------- | ------------------------------------------------------- |
+| `mnemonic` | `string` | BIP39 mnemonic for key derivation                       |
+| `coins`    | `string` | Coins to fund, comma-separated, **sorted alphabetically by denom** |
+| `name`     | `string` | Keyring name. Defaults to `test-{index}`                |
+
+## `testAccounts`
+
+`testAccounts` ships a handful of well-known, publicly-documented BIP39 test mnemonics (the same ones used across the Cosmos/EVM test ecosystems), with addresses pre-derived for the `cosmos` bech32 prefix at the default HD path (`m/44'/118'/0'/0/0`):
+
+```ts
+import { Instance, testAccounts } from 'starskiff';
+
+const [alice, bob, carol, faucet] = testAccounts;
+
+const instance = Instance.simd({
+  accounts: [{ mnemonic: alice.mnemonic, coins: '1000000000stake', name: alice.name }],
+});
+
+alice.address; // cosmos19rl4cm2hmr8afy4kldpxz3fka4jguq0auqdal4
+```
+
+:::warning
+These mnemonics are public — never fund them with real value.
+:::
+
+Addresses assume the `cosmos` prefix. Chains configured with a different `prefix` (e.g. `osmo`, `xpla`) need addresses re-derived from the same mnemonic — the underlying key doesn't change, only the bech32 encoding does. EVM chains additionally derive at coin type 60 (`m/44'/60'/0'/0/0`), which yields a *different* key — derive with an eth-aware wallet (e.g. viem's `mnemonicToAccount`).
+
+## Isolation strategy
+
+For most suites, account isolation beats instance isolation: boot one instance, fund many accounts in genesis, and give each test its own account(s). A fresh instance per test is only worth the ~5s boot when a test mutates chain-wide state (gov params, upgrades, …).

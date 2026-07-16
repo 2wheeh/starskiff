@@ -26,7 +26,7 @@ jobs:
         run: pnpm check
 
       - name: Unit & Smoke tests
-        run: pnpm vitest run --project unit
+        run: pnpm test:unit
 
   integration:
     name: Integration Tests
@@ -79,4 +79,4 @@ jobs:
           done
 
       - name: Integration tests
-        run: pnpm vitest run --project integration
+        run: pnpm test:integration

@@ -1,0 +1,7 @@
+packages:
+  - package
+  - docs
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
