@@ -120,10 +120,17 @@ jobs:
         run: |
           TAG="binaries/latest"
 
-          BODY=$(jq -r '.binaries[] | "- \(.name): \(.repo)@\(.ref)"' config/binaries.json)
-          BODY="${BODY}
+          # Only source-built binaries are uploaded here. Prebuilt entries
+          # (gaiad/hermes) are downloaded by CI straight from their upstream
+          # releases, so list them separately as dependencies, not as assets.
+          UPLOADED=$(jq -r '.binaries[] | select(.buildType != "prebuilt") | "- \(.name): \(.repo)@\(.ref)"' config/binaries.json)
+          UPSTREAM=$(jq -r '.binaries[] | select(.buildType == "prebuilt") | "- \(.name): \(.repo)@\(.ref)"' config/binaries.json)
+          BODY="Uploaded assets (source-built, linux/amd64 static):
+          ${UPLOADED}
 
-          Platform: linux/amd64 (static)
+          Fetched by CI from upstream (not in this release):
+          ${UPSTREAM}
+
           Updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
           gh release delete "$TAG" --yes 2>/dev/null || true
