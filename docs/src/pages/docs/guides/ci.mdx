@@ -9,10 +9,10 @@
 
 `simd`, `wasmd`, and `xplad` run from an official image, so they need no binary on the runner. `evmd` runs an image starskiff publishes — but until that image's [first publish](/docs/guides/docker#images-we-publish), it's provisioned as a binary too (the harness pins `binary: 'evmd'`); once published it joins the no-setup group.
 
-The rest of this guide covers the **exceptions** — chains with no usable upstream image, which stay binary-provisioned:
+The rest of this guide covers the **exceptions** — instances with no usable upstream image, which stay binary-provisioned (chain nodes, plus the `hermes` relayer):
 
-| Chain | Why it's a binary exception |
-| ----- | --------------------------- |
+| Instance | Why it's a binary exception |
+| -------- | --------------------------- |
 | `gaiad` | official image lags mainnet (v25/v26 vs live v27.5.0) |
 | `hermes` | an IBC relayer, run as a host binary next to the chains |
 | `marood` | private node source — no public image (inject it yourself) |
@@ -62,7 +62,7 @@ jobs:
       - run: pnpm vitest run
 ```
 
-Some chains publish official release binaries you can download straight from upstream instead of building anything (e.g. gaia, hermes):
+Some upstreams publish official release binaries you can download straight instead of building anything (e.g. the gaia chain, the hermes relayer):
 
 ```yaml
       - name: Download hermes
