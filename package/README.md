@@ -44,7 +44,7 @@ pnpm add -D starskiff
 
 ### Prerequisites
 
-Image-backed instances (`simd`, `wasmd`, `gaiad`, `xplad`, `evmd`) need only a running **Docker** — the image is pulled on first use. The `hermes` relayer needs its binary on `PATH` (official releases at [informalsystems/hermes](https://github.com/informalsystems/hermes/releases)); `marood` (no default image) needs an injected source — an `image`, or a binary on `PATH`.
+Image-backed instances (`simd`, `wasmd`, `gaiad`, `xplad`, `xrplevm`, `mantra`, `evmd`) need only a running **Docker** — the image is pulled on first use. The `hermes` relayer needs its binary on `PATH` (official releases at [informalsystems/hermes](https://github.com/informalsystems/hermes/releases)); `marood` (no default image) needs an injected source — an `image`, or a binary on `PATH`.
 
 Any instance also accepts a `binary` (local executable) or `image` (custom tag) override — the [escape hatch](./../docs/src/pages/docs/guides/docker.mdx#escape-hatches) for local development, e.g. running an image-backed chain from a source build without Docker.
 
