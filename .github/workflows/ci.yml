@@ -31,6 +31,22 @@ jobs:
       - name: Unit & Smoke tests
         run: pnpm test:unit
 
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The docs site is a workspace package but root check/build only filter
+      # `starskiff`, so a broken vocs page or workspace link would merge unseen.
+      - name: Build docs
+        run: pnpm docs:build
+
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
@@ -51,23 +67,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           gh release download "binaries/latest" --pattern "*.gz" --dir /tmp
 
-          for name in $(jq -r '.binaries[] | select(.buildType != "prebuilt") | .name' config/binaries.json); do
+          # read line-by-line: `for x in $(jq ...)` word-splits on spaces, which
+          # shreds any JSON field that contains them (e.g. binaries.json `reason`).
+          # Feed via a here-string so `set -e` failures abort the job (a piped
+          # `while` runs in a subshell and can swallow them).
+          while IFS= read -r name; do
             gunzip -c "/tmp/${name}-linux-amd64.gz" > "/usr/local/bin/${name}"
             chmod +x "/usr/local/bin/${name}"
-          done
+          done < <(jq -r '.binaries[] | select(.buildType != "prebuilt") | .name' config/binaries.json)
 
       - name: Download prebuilt binaries
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for row in $(jq -c '.binaries[] | select(.buildType == "prebuilt")' config/binaries.json); do
-            name=$(echo "$row" | jq -r '.name')
-            repo=$(echo "$row" | jq -r '.repo')
-            ref=$(echo "$row" | jq -r '.ref')
-            asset=$(echo "$row" | jq -r '.asset')
-            extract=$(echo "$row" | jq -r '.extract')
+          set -euo pipefail
+          while IFS= read -r row; do
+            name=$(jq -r '.name' <<<"$row")
+            repo=$(jq -r '.repo' <<<"$row")
+            ref=$(jq -r '.ref' <<<"$row")
+            asset=$(jq -r '.asset' <<<"$row")
+            extract=$(jq -r '.extract // "none"' <<<"$row")  # null -> "none", not literal "null"
 
             gh release download "$ref" --repo "$repo" --pattern "$asset" --dir /tmp
 
@@ -79,7 +101,14 @@ jobs:
 
             mv "/tmp/${name}" "/usr/local/bin/${name}"
             chmod +x "/usr/local/bin/${name}"
-          done
+          done < <(jq -c '.binaries[] | select(.buildType == "prebuilt")' config/binaries.json)
 
       - name: Integration tests
         run: pnpm test:integration
+
+      # Feature project tests whose deps exist on CI: xplad-docker (pulls the
+      # official image) and extra-validators (uses the simd binary). marood
+      # (private binary) and evmd-docker (image not yet published) are excluded
+      # until their infra lands.
+      - name: Feature tests (container runtime + multi-validator)
+        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/extra-validators.test.ts
