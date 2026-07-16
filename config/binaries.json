@@ -3,28 +3,14 @@
     "Binaries CI provisions for instances that are NOT container-first. An instance is",
     "container-first when it can source a node from an image — either the chain's own",
     "official image pinned to the live-network version (e.g. xplad), or one starskiff",
-    "builds and publishes itself (config/images.json, e.g. evmd). Everything below sources",
-    "from a binary instead, for the reason on each entry.",
+    "builds and publishes itself (config/images.json, e.g. evmd). The entries below source",
+    "from a binary instead — either permanently (no usable image) or transitionally (evmd,",
+    "until its published image exists), per the reason on each entry.",
     "release-binaries.yml builds/uploads these once; ci.yml downloads them per run.",
     "Re-check each `reason` on bump — if the image situation changed, move the chain to a",
     "container-first instance (official image) or to config/images.json (we publish it)."
   ],
   "binaries": [
-    {
-      "name": "simd",
-      "repo": "cosmos/cosmos-sdk",
-      "ref": "v0.53.7",
-      "reason": "ghcr.io/cosmos/simapp only tags minor lines (v0.53, v0.54) — no patch-level pin",
-      "buildType": "standard",
-      "buildCmd": "cd simapp && go build -o ../build/simd ./simd/"
-    },
-    {
-      "name": "wasmd",
-      "repo": "CosmWasm/wasmd",
-      "ref": "v0.61.14",
-      "reason": "cosmwasm/wasmd publishes exact tags — candidate for a container-first instance",
-      "buildType": "cosmwasm"
-    },
     {
       "name": "evmd",
       "repo": "cosmos/evm",
