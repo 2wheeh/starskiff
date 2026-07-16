@@ -3,8 +3,10 @@ import { cosmosEvmBase, type CosmosEvmChainParameters, type Genesis } from '../c
 
 /**
  * Default active static precompiles for xplad.
- * Mirrors `@xpla/evm` `PRECOMPILE_ADDRESSES` (v1.9.0), sorted ascending as
- * required by cosmos-evm genesis validation. Frozen by chain consensus.
+ * Mirrors `@xpla/evm` `PRECOMPILE_ADDRESSES` (v1.9.0; unchanged in v1.10.0 —
+ * the xpladev/evm diff between the two touches only mempool/server), sorted
+ * ascending as required by cosmos-evm genesis validation. Frozen by chain
+ * consensus.
  */
 export const XPLA_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x0000000000000000000000000000000000000100', // P256
@@ -19,8 +21,18 @@ export const XPLA_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x1000000000000000000000000000000000000044', // WasmDelegate
 ]
 
+/**
+ * Official XPLA image, pinned to the version running on XPLA mainnet
+ * (`dimension_1-1`). Used unless the caller opts into a binary.
+ */
+export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.10.0'
+
 export type XpladParameters = CosmosEvmChainParameters & {
-  /** Path to the xplad binary. @default "xplad" */
+  /**
+   * Run from a local `xplad` binary on `PATH` instead of the image.
+   * Passing this at all opts out of the container runtime.
+   * @default "xplad" (only when opted in)
+   */
   binary?: string
   /** Chain-specific genesis patch, chained after xplad's defaults. */
   patchGenesis?: (genesis: Genesis) => Genesis
@@ -33,13 +45,22 @@ export type XpladParameters = CosmosEvmChainParameters & {
  * The native denom uses 18 decimals (e.g. axpla), which requires
  * larger validator stake/balance than the cosmosBase defaults.
  *
+ * XPLA publishes an official image, so this instance is container-first: it
+ * runs {@link XPLA_DEFAULT_IMAGE} out of the box — no Go toolchain, no manual
+ * build, and the node is the exact artifact the network ships. Docker must be
+ * running. The node still runs as a plain child process under starskiff's own
+ * lifecycle; the image is only where the node comes from.
+ *
  * @example
  * ```ts
+ * // container (default)
  * const instance = Instance.xplad({
  *   accounts: [{ mnemonic: '...', coins: '1000000000000000000000axpla' }],
  * })
- * await instance.start()
- * await instance.stop()
+ *
+ * // escape hatches
+ * Instance.xplad({ image: 'my-registry/xpla:custom' }) // bind your own image
+ * Instance.xplad({ binary: 'xplad' })                  // local binary on PATH
  * ```
  */
 export const xplad = Instance.define((parameters?: XpladParameters) => {
@@ -56,6 +77,13 @@ export const xplad = Instance.define((parameters?: XpladParameters) => {
     ...rest
   } = params
 
+  // Container-first, with both escape hatches: an explicit `image` wins, and
+  // naming a `binary` opts out of docker entirely. `binary` still carries the
+  // in-image executable name for the container runtime.
+  const image = 'image' in params
+    ? params.image
+    : 'binary' in params ? undefined : XPLA_DEFAULT_IMAGE
+
   // Preserve the three-state semantics of `activeStaticPrecompiles`:
   // omitted → xpla default; explicit `undefined` → pass through (binary default);
   // `[]` → disable all; `[...]` → overwrite.
@@ -64,6 +92,7 @@ export const xplad = Instance.define((parameters?: XpladParameters) => {
 
   return cosmosEvmBase({
     binary, name: 'xpla', chainId, denom, prefix, validatorBalance, validatorStake, ...rest,
+    image,
     activeStaticPrecompiles,
     patchGenesis: (genesis) => {
       // xplad requires evm_denom and bank.denom_metadata to match the native denom

@@ -5,6 +5,14 @@ import path from 'node:path'
 import { x } from 'tinyexec'
 import * as Instance from './Instance.js'
 import { createProcess } from './process.js'
+import {
+  assertDockerAvailable,
+  CONTAINER_HOME,
+  ensureImage,
+  removeContainer,
+  runArgs as dockerRunArgs,
+  startArgs as dockerStartArgs,
+} from './docker.js'
 
 export type CosmosAccount = {
   /** BIP39 mnemonic for key derivation. */
@@ -82,6 +90,19 @@ export type CosmosChainParameters = {
    * `cosmosEvmBase`), callers only override for custom chains.
    */
   relayerHints?: CosmosRelayerHints
+  /**
+   * Run the node from a container image instead of a binary on `PATH`
+   * (e.g. `"ghcr.io/xpladev/xpla:v1.10.0"`).
+   *
+   * Chains that publish an official image default to it — no Go toolchain, no
+   * `go build`, and the image is the artifact the network itself ships. Docker
+   * must be running.
+   *
+   * The image is only the *source of the node*: starskiff still drives the
+   * chain CLI, patches genesis on the host, and streams stdout/stderr from a
+   * child process — there's no orchestrator here.
+   */
+  image?: string
 }
 
 /** A Cosmos chain instance with chain-specific config exposed. */
@@ -141,6 +162,12 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   /** Extra args appended to the `start` command (e.g. `['--chain-id', id]`). */
   extraStartArgs?: string[]
   /**
+   * Additional ports to publish when running from an image (e.g. the EVM
+   * JSON-RPC port, added by `cosmosEvmBase`). Ignored by the binary runtime,
+   * which needs no port mapping.
+   */
+  extraPorts?: number[]
+  /**
    * Additional readiness check ANDed with the default CometBFT height check
    * before `start()` resolves. Used by `cosmosEvmBase` to also wait for the
    * JSON-RPC (EVM) endpoint to come up.
@@ -179,8 +206,10 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     extraAppToml,
     extraConfigToml,
     extraStartArgs,
+    extraPorts,
     extraReadinessCheck,
     relayerHints,
+    image,
   } = parameters
 
   const process = createProcess(name)
@@ -188,9 +217,14 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
   let homeDir: string | undefined
   let healthPollInterval: ReturnType<typeof setInterval> | undefined
 
+  // Container name for the docker runtime. Unique per instance so concurrent
+  // chains (and leftovers from a crashed run) never collide.
+  const containerName = `starskiff-${name}-${globalThis.process.pid}-${Math.random().toString(36).slice(2, 8)}`
+
   // Shared by stop() and start()'s failure path so a half-started instance
   // (bootstrap threw, or the start timeout fired) leaves nothing behind:
-  // the health-poll interval, the child process, and the temp home dir.
+  // the health-poll interval, the child process, the container, and the temp
+  // home dir.
   async function cleanup() {
     if (healthPollInterval) {
       clearInterval(healthPollInterval)
@@ -201,6 +235,9 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     } catch {
       // best-effort: tolerate an already-dead process
     }
+    // Killing the `docker run` client doesn't necessarily reap the container,
+    // which would keep the published ports bound. Remove it explicitly.
+    if (image) await removeContainer(containerName)
     if (homeDir) {
       fs.rmSync(homeDir, { recursive: true, force: true })
       homeDir = undefined
@@ -228,11 +265,25 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-'))
 
       try {
+        if (image) {
+          await assertDockerAvailable(image)
+          await ensureImage(image, (message) => emitter.emit('message', message))
+        }
+
+        // Both runtimes execute the same chain CLI against the same home dir —
+        // docker just runs it inside a disposable container with that dir bind
+        // mounted, so every step below (and the host-side genesis/config
+        // patching) is runtime-agnostic.
         const run = (args: string[]) =>
-          x(binary, [...args, '--home', homeDir!], {
-            throwOnError: true,
-            nodeOptions: { stdio: 'pipe' },
-          })
+          image
+            ? x('docker', dockerRunArgs({ image, homeDir: homeDir! }, binary, args), {
+                throwOnError: true,
+                nodeOptions: { stdio: 'pipe' },
+              })
+            : x(binary, [...args, '--home', homeDir!], {
+                throwOnError: true,
+                nodeOptions: { stdio: 'pipe' },
+              })
 
         // 1. Init chain
         await run(['init', 'validator', '--chain-id', chainId])
@@ -257,10 +308,18 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           const account = accounts[i]
           const keyName = account.name || `test-${i}`
 
-          const result = spawnSync(binary, [
-            'keys', 'add', keyName, '--recover',
-            '--keyring-backend', 'test', '--home', homeDir!,
-          ], { input: account.mnemonic + '\n', stdio: ['pipe', 'pipe', 'pipe'] })
+          // tinyexec has no stdin, and `keys add --recover` prompts for the
+          // mnemonic — so this one step drops to spawnSync with a piped stdin
+          // (docker gets `-i` to keep the pipe open into the container).
+          const recoverArgs = ['keys', 'add', keyName, '--recover', '--keyring-backend', 'test']
+          const [recoverCmd, recoverArgv] = image
+            ? ['docker', dockerRunArgs({ image, homeDir: homeDir! }, binary, recoverArgs, { interactive: true })] as const
+            : [binary, [...recoverArgs, '--home', homeDir!]] as const
+
+          const result = spawnSync(recoverCmd, recoverArgv as string[], {
+            input: account.mnemonic + '\n',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          })
 
           if (result.status !== 0) {
             throw new Error(`Failed to recover key "${keyName}": ${result.stderr?.toString()}`)
@@ -291,23 +350,27 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           ])
 
           const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
+          // The throwaway home is a *different* directory, so under docker it
+          // needs its own bind mount rather than the instance's.
+          const runInConsHome = (args: string[]) =>
+            image
+              ? x('docker', dockerRunArgs({ image, homeDir: consHome }, binary, args), {
+                  throwOnError: true,
+                  nodeOptions: { stdio: 'pipe' },
+                })
+              : x(binary, [...args, '--home', consHome], {
+                  throwOnError: true,
+                  nodeOptions: { stdio: 'pipe' },
+                })
           try {
-            await x(binary, ['init', valName, '--chain-id', chainId, '--home', consHome], {
-              throwOnError: true,
-              nodeOptions: { stdio: 'pipe' },
-            })
+            await runInConsHome(['init', valName, '--chain-id', chainId])
             // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
             // the `tendermint` alias, so fall back to it.
-            const showValidator = (sub: string) =>
-              x(binary, [sub, 'show-validator', '--home', consHome], {
-                throwOnError: true,
-                nodeOptions: { stdio: 'pipe' },
-              })
             let pubkey: string
             try {
-              pubkey = (await showValidator('comet')).stdout
+              pubkey = (await runInConsHome(['comet', 'show-validator'])).stdout
             } catch {
-              pubkey = (await showValidator('tendermint')).stdout
+              pubkey = (await runInConsHome(['tendermint', 'show-validator'])).stdout
             }
             await run([
               'genesis', 'gentx', valName, `${extraStake}${denom}`,
@@ -315,8 +378,12 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
               '--moniker', valName,
               // All gentx share this home's node key, so the default
               // `gentx-<nodeID>.json` filename collides — write a distinct file.
+              // The path is resolved by the chain CLI, so it must be expressed
+              // in the container's filesystem when running from an image.
               '--output-document',
-              path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
+              image
+                ? `${CONTAINER_HOME}/config/gentx/gentx-${valName}.json`
+                : path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
               '--chain-id', chainId, '--keyring-backend', 'test',
             ])
           } finally {
@@ -344,8 +411,22 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           ...extraAppToml,
         }, binary)
 
-        // 6. Start and wait for first block
-        return await process.start(binary, ['start', '--home', homeDir, ...(extraStartArgs ?? [])], {
+        // 6. Start and wait for first block.
+        // The container runs attached, so `docker run` forwards the node's
+        // stdout/stderr to the child process — message buffering, events and
+        // exit detection below are identical for both runtimes.
+        const startCliArgs = ['start', ...(extraStartArgs ?? [])]
+        const [startCmd, startArgv] = image
+          ? [
+              'docker',
+              dockerStartArgs({ image, homeDir }, binary, startCliArgs, {
+                name: containerName,
+                ports: [port, p2pPort, apiPort, grpcPort, grpcWebPort, ...(extraPorts ?? [])],
+              }),
+            ] as const
+          : [binary, ['start', '--home', homeDir, ...(extraStartArgs ?? [])]] as const
+
+        return await process.start(startCmd, startArgv as string[], {
           emitter,
           resolver({ process: proc, resolve, reject }) {
             const rpcUrl = `http://localhost:${port}`
@@ -546,6 +627,8 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
   const { evmPort = 8545, relayerHints, activeStaticPrecompiles, patchGenesis: userPatch, ...rest } = parameters
   const base = cosmosBase({
     ...rest,
+    // Docker runtime: the JSON-RPC listener needs its port published too.
+    extraPorts: [evmPort],
     extraAppToml: {
       'json-rpc.enable': 'true',
       'json-rpc.address': `0.0.0.0:${evmPort}`,

@@ -23,6 +23,7 @@ Shared by all Cosmos chain instances (`CosmosChainParameters`):
 | `grpcWebPort`      | `number`          | `9091`            | gRPC-Web port                                  |
 | `pprofPort`        | `number`          | `6060`            | pprof port                                     |
 | `relayerHints`     | `CosmosRelayerHints` | instance-specific | Hermes address-derivation hints             |
+| `image`            | `string`          | instance-specific | Run the node from a container image instead of a `PATH` binary — see the [container runtime](/docs/guides/docker) |
 
 EVM chains (`CosmosEvmChainParameters`) add:
 

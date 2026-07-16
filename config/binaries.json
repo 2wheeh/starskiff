@@ -1,9 +1,19 @@
 {
+  "_comment": [
+    "Binaries CI must provision, because these instances cannot be container-first.",
+    "An instance defaults to its chain's official image whenever that image exists AND",
+    "is pinnable to the version the live network runs (see src/instances/xplad.ts).",
+    "Everything listed here fails one of those two tests, so CI still has to build or",
+    "download a binary. Re-check a chain's `reason` when bumping it — if the upstream",
+    "image situation has changed, the entry should move to a container-first instance.",
+    "release-binaries.yml builds/uploads these once; ci.yml downloads them per run."
+  ],
   "binaries": [
     {
       "name": "simd",
       "repo": "cosmos/cosmos-sdk",
       "ref": "v0.53.7",
+      "reason": "ghcr.io/cosmos/simapp only tags minor lines (v0.53, v0.54) — no patch-level pin",
       "buildType": "standard",
       "buildCmd": "cd simapp && go build -o ../build/simd ./simd/"
     },
@@ -11,33 +21,29 @@
       "name": "wasmd",
       "repo": "CosmWasm/wasmd",
       "ref": "v0.61.14",
+      "reason": "cosmwasm/wasmd publishes exact tags — candidate for a container-first instance",
       "buildType": "cosmwasm"
     },
     {
       "name": "evmd",
       "repo": "cosmos/evm",
       "ref": "v0.7.0",
+      "reason": "no official image (ghcr.io/cosmos/evm is empty) — source build is the only option",
       "buildType": "standard"
     },
     {
       "name": "gaiad",
       "repo": "cosmos/gaia",
       "ref": "v27.5.0",
+      "reason": "ghcr.io/cosmos/gaia lags mainnet (latest tags v25/v26 vs live v27.5.0)",
       "buildType": "prebuilt",
       "asset": "gaiad-v27.5.0-linux-amd64"
-    },
-    {
-      "name": "xplad",
-      "repo": "xpladev/xpla",
-      "ref": "v1.10.0",
-      "buildType": "prebuilt",
-      "asset": "xpla_1.10.0_Linux_x86_64.tar.gz",
-      "extract": "tar"
     },
     {
       "name": "hermes",
       "repo": "informalsystems/hermes",
       "ref": "v1.13.3",
+      "reason": "relayer, not a chain — the hermes instance drives the CLI and its config files directly",
       "buildType": "prebuilt",
       "asset": "hermes-v1.13.3-x86_64-unknown-linux-gnu.tar.gz",
       "extract": "tar"

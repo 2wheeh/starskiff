@@ -2,6 +2,8 @@
 
 `Instance.xplad()` boots an [XPLA](https://xpla.io) node: a Cosmos SDK chain with both EVM and CosmWasm. The native denom (`axpla`) uses 18 decimals, so the instance defaults to larger validator stake/balance than `cosmosBase`.
 
+XPLA publishes an official image, so this instance is **container-first** — see the [Container Runtime guide](/docs/guides/docker). Nothing to install but Docker.
+
 ## Usage
 
 ```ts
@@ -10,16 +12,25 @@ import { Instance } from 'starskiff';
 const instance = Instance.xplad({
   accounts: [{ mnemonic: '...', coins: '1000000000000000000000axpla' }],
 });
-await instance.start();
+await instance.start(); // pulls + runs ghcr.io/xpladev/xpla
 
 instance.evmUrl; // http://localhost:8545 — EVM JSON-RPC
 ```
+
+## Runtime
+
+| Call | Runtime |
+| ---- | ------- |
+| `Instance.xplad()` | Container, `XPLA_DEFAULT_IMAGE` (pinned to the version XPLA mainnet runs) |
+| `Instance.xplad({ image: 'my/xpla:tag' })` | Container, your image |
+| `Instance.xplad({ binary: 'xplad' })` | Local binary on `PATH` |
 
 ## Defaults
 
 | Parameter          | Default            |
 | ------------------ | ------------------ |
-| `binary`           | `"xplad"`          |
+| `image`            | `XPLA_DEFAULT_IMAGE` (`ghcr.io/xpladev/xpla:v1.10.0`) |
+| `binary`           | `"xplad"` (in-image executable; also the PATH name when opted in) |
 | `chainId`          | `"dimension_37-1"` |
 | `denom`            | `"axpla"`          |
 | `prefix`           | `"xpla"`           |

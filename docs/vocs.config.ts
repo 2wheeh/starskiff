@@ -27,6 +27,7 @@ export default defineConfig({
     {
       text: 'Guides',
       items: [
+        { text: 'Container Runtime', link: '/docs/guides/docker' },
         { text: 'Test Accounts', link: '/docs/guides/accounts' },
         { text: 'Multi-Chain & Ports', link: '/docs/guides/multi-chain' },
         { text: 'vitest Setup', link: '/docs/guides/vitest' },
