@@ -80,6 +80,12 @@ export default async function setup({ provide }: TestProject) {
   });
 
   const evmd = Instance.evmd({
+    // Binary lane: this shared integration harness stays on the evmd binary
+    // (provisioned via config/binaries.json) until EVMD_DEFAULT_IMAGE is
+    // published to GHCR and pinned by digest. Doubles as the {binary:'evmd'}
+    // escape-hatch integration coverage. The dedicated container-first test
+    // (evmd-docker) exercises the default image path.
+    binary: 'evmd',
     rpcPort: 27157,
     grpcPort: 9590,
     apiPort: 1817,

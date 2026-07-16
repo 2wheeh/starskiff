@@ -1,5 +1,6 @@
 import * as Instance from '../Instance.js'
 import { cosmosEvmBase, type CosmosEvmChainParameters, type Genesis } from '../cosmos.js'
+import { resolveInstanceImage } from '../docker.js'
 
 /**
  * Default active static precompiles for evmd.
@@ -24,8 +25,24 @@ export const EVMD_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x0000000000000000000000000000000000000807', // ICS02
 ]
 
+/**
+ * Image starskiff publishes for evmd, pinned to the upstream ref built by
+ * `.github/workflows/publish-images.yml` (source of truth: `config/images.json`).
+ *
+ * cosmos/evm ships no official image, so — unlike a chain that publishes its
+ * own — starskiff builds and redistributes this one to its public GHCR
+ * namespace. Pinned by tag until the first publish yields a multi-arch manifest
+ * digest, after which this is pinned to `…@sha256:…` and CI asserts it equals
+ * `config/images.json`.
+ */
+export const EVMD_DEFAULT_IMAGE = 'ghcr.io/2wheeh/starskiff/evmd:v0.7.0'
+
 export type EvmdParameters = CosmosEvmChainParameters & {
-  /** Path to the evmd binary. @default "evmd" */
+  /**
+   * Run from a local `evmd` binary on `PATH` instead of the image.
+   * Passing this at all opts out of the container runtime.
+   * @default "evmd" (only when opted in)
+   */
   binary?: string
   /** Chain-specific genesis patch, chained after evmd's defaults. */
   patchGenesis?: (genesis: Genesis) => Genesis
@@ -39,6 +56,12 @@ export type EvmdParameters = CosmosEvmChainParameters & {
  * staking at `0x…0800`, etc.), which makes it the most faithful target for
  * testing the standard cosmos-evm precompile ABIs.
  *
+ * cosmos/evm publishes no image, so this instance is container-first on an
+ * image **starskiff builds and redistributes** ({@link EVMD_DEFAULT_IMAGE}) —
+ * no Go toolchain, no `go build`. Docker must be running. As with every
+ * instance, pass `binary` to run a local executable instead, or `image` to
+ * bind your own.
+ *
  * A fresh `evmd init` produces a genesis denominated entirely in `stake`
  * (bond, mint, gov and `evm.evm_denom`), with an empty precompile set and no
  * bank denom metadata. This instance fills those gaps: it enables the full set
@@ -48,11 +71,14 @@ export type EvmdParameters = CosmosEvmChainParameters & {
  *
  * @example
  * ```ts
+ * // container (default)
  * const instance = Instance.evmd({
  *   accounts: [{ mnemonic: '...', coins: '1000000000000000000000stake' }],
  * })
- * await instance.start()
- * await instance.stop()
+ *
+ * // escape hatches
+ * Instance.evmd({ image: 'my-registry/evmd:custom' }) // bind your own image
+ * Instance.evmd({ binary: 'evmd' })                   // local binary on PATH
  * ```
  */
 export const evmd = Instance.define((parameters?: EvmdParameters) => {
@@ -69,6 +95,8 @@ export const evmd = Instance.define((parameters?: EvmdParameters) => {
     ...rest
   } = params
 
+  const image = resolveInstanceImage(params, EVMD_DEFAULT_IMAGE)
+
   // Preserve the three-state semantics of `activeStaticPrecompiles`:
   // omitted → evmd default (full set); explicit `undefined` → pass through
   // (binary default, which is empty); `[]` → disable all; `[...]` → overwrite.
@@ -77,6 +105,7 @@ export const evmd = Instance.define((parameters?: EvmdParameters) => {
 
   return cosmosEvmBase({
     binary, name: 'evmd', chainId, denom, prefix, validatorBalance, validatorStake, ...rest,
+    image,
     activeStaticPrecompiles,
     // evmd enables the app-side EVM mempool, which requires comet-bft's
     // config.toml `mempool.type = "app"` (a fresh init writes "flood").

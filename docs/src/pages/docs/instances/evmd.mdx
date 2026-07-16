@@ -2,6 +2,8 @@
 
 `Instance.evmd()` boots [cosmos/evm](https://github.com/cosmos/evm)'s reference chain (`./cmd/evmd`). Its precompiles sit at their canonical `x/vm` addresses (bank at `0x…0804`, staking at `0x…0800`, …), which makes it the most faithful target for testing the standard cosmos-evm precompile ABIs.
 
+cosmos/evm ships no official image, so this instance is **container-first on an image starskiff builds and publishes** (`EVMD_DEFAULT_IMAGE`) — see [Container Runtime](/docs/guides/docker#images-we-publish). Nothing to install but Docker.
+
 ## Usage
 
 ```ts
@@ -10,16 +12,25 @@ import { Instance } from 'starskiff';
 const instance = Instance.evmd({
   accounts: [{ mnemonic: '...', coins: '1000000000000000000000atest' }],
 });
-await instance.start();
+await instance.start(); // pulls + runs ghcr.io/2wheeh/starskiff/evmd
 
 // eth_chainId → 262144 (x/vm DefaultEVMChainID)
 ```
+
+## Runtime
+
+| Call | Runtime |
+| ---- | ------- |
+| `Instance.evmd()` | Container, `EVMD_DEFAULT_IMAGE` (starskiff-published, built from cosmos/evm) |
+| `Instance.evmd({ image: 'my/evmd:tag' })` | Container, your image |
+| `Instance.evmd({ binary: 'evmd' })` | Local binary on `PATH` |
 
 ## Defaults
 
 | Parameter          | Default             |
 | ------------------ | ------------------- |
-| `binary`           | `"evmd"`            |
+| `image`            | `EVMD_DEFAULT_IMAGE` (`ghcr.io/2wheeh/starskiff/evmd:v0.7.0`) |
+| `binary`           | `"evmd"` (in-image executable; also the PATH name when opted in) |
 | `chainId`          | `"cosmos_262144-1"` |
 | `denom`            | `"atest"`           |
 | `prefix`           | `"cosmos"`          |

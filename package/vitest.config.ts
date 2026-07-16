@@ -7,7 +7,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['test/Instance.test.ts', 'test/smoke.test.ts', 'test/ports.test.ts', 'test/accounts.test.ts', 'test/extra-validator-stake.test.ts'],
+          include: ['test/Instance.test.ts', 'test/smoke.test.ts', 'test/ports.test.ts', 'test/accounts.test.ts', 'test/extra-validator-stake.test.ts', 'test/images-manifest.test.ts'],
         },
       },
       {
@@ -22,7 +22,7 @@ export default defineConfig({
         // Self-contained: boots its own dedicated instance, no shared global-setup.
         test: {
           name: 'feature',
-          include: ['test/extra-validators.test.ts', 'test/marood.test.ts', 'test/xplad-docker.test.ts'],
+          include: ['test/extra-validators.test.ts', 'test/marood.test.ts', 'test/xplad-docker.test.ts', 'test/evmd-docker.test.ts'],
           fileParallelism: false,
         },
       },

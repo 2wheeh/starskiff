@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "Container images that starskiff BUILDS and PUBLISHES to its own public GHCR namespace.",
+    "Single source of truth for the publish workflow AND the instance defaults:",
+    "  - the workflow reads ref/commit/repo to build and asserts the checked-out HEAD",
+    "  - the instance's *_DEFAULT_IMAGE constant must equal image[@digest] here (CI asserts)",
+    "ALLOWLIST DISCIPLINE: an entry here means 'we redistribute this chain's node publicly'.",
+    "Targets are NEVER derived from src/instances, config/binaries.json, tests, or docs.",
+    "HARD RULE: maroo/marood must never appear here (private node source, no public distribution).",
+    "The `digest` is filled after the first successful publish (multi-arch manifest sha256),",
+    "then the instance default is pinned to image@digest. Until then, tag-pinned + unverified."
+  ],
+  "images": [
+    {
+      "name": "evmd",
+      "repo": "cosmos/evm",
+      "ref": "v0.7.0",
+      "commit": "f4ab9a3e3fbe353468327d5cacda94b33b41ed11",
+      "context": "images/evmd",
+      "image": "ghcr.io/2wheeh/starskiff/evmd",
+      "digest": null,
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "note": "cgo-required (go-ethereum secp256k1); arm64 builds under QEMU"
+    }
+  ]
+}
