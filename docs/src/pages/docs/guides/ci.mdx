@@ -13,7 +13,6 @@ The rest of this guide covers the instances that **do** need provisioning — th
 | -------- | ------------------------------------------------------------------------------------ |
 | `gaiad`  | no default image (the official one lags mainnet) — [injection required](/docs/chains) |
 | `hermes` | an IBC relayer, run as a host binary next to the chains                              |
-| `evmd`   | _transitional_ — until its [published image](/docs/guides/docker#images-we-publish) exists, the harness pins `binary: 'evmd'` |
 
 (`marood` requires injection too, but its node source is private — provision its binary or a private image only where that's allowed.)
 
@@ -90,10 +89,10 @@ Simplest to set up and always reproducible, but each cold run spends minutes in 
     go-version: '1.25'
     cache: true
 
-- name: Build evmd
+- name: Build gaiad
   run: |
-    git clone --depth 1 https://github.com/cosmos/evm.git /tmp/cosmos-evm
-    cd /tmp/cosmos-evm/evmd && go build -o /usr/local/bin/evmd ./cmd/evmd/
+    git clone --depth 1 --branch v27.5.0 https://github.com/cosmos/gaia.git /tmp/gaia
+    cd /tmp/gaia && go build -o /usr/local/bin/gaiad ./cmd/gaiad/
 ```
 
 Reasonable for a repo that runs CI rarely, or as the bootstrap step that produces the prebuilt assets above.

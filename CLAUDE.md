@@ -45,7 +45,7 @@ Follow an existing thin wrapper (`package/src/instances/`): resolve the image (p
 
 ## Config
 
-- `config/binaries.json` — binaries starskiff's CI provisions (gaiad, hermes, transitional evmd), with a `reason` per entry.
+- `config/binaries.json` — binaries starskiff's CI provisions (gaiad, hermes), with a `reason` per entry.
 - `config/images.json` — allowlist of images starskiff publishes to GHCR (currently evmd). HARD RULE: maroo/marood must never appear here (`scripts/check-image-allowlist.mjs` enforces).
 
 ## Design decisions

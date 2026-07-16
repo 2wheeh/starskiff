@@ -63,24 +63,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Download source-built binaries
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release download "binaries/latest" --pattern "*.gz" --dir /tmp
-
-          # read line-by-line: `for x in $(jq ...)` word-splits on spaces, which
-          # shreds any JSON field that contains them (e.g. binaries.json `reason`).
-          # Use a pipeline (not `< <(...)`): with pipefail a jq failure fails the
-          # pipeline and aborts the job; process substitution runs jq async and
-          # its exit status would be ignored by set -e.
-          jq -r '.binaries[] | select(.buildType != "prebuilt") | .name' config/binaries.json \
-          | while IFS= read -r name; do
-            gunzip -c "/tmp/${name}-linux-amd64.gz" > "/usr/local/bin/${name}"
-            chmod +x "/usr/local/bin/${name}"
-          done
-
+      # All source-built lanes are gone (evmd moved to its published image), so
+      # only upstream prebuilt assets are provisioned. If a source-built entry
+      # returns to config/binaries.json, restore the "Download source-built
+      # binaries" step that gunzips them from the binaries/latest release.
       - name: Download prebuilt binaries
         env:
           GH_TOKEN: ${{ github.token }}
@@ -112,9 +98,9 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
-      # Feature project tests whose deps exist on CI: xplad-docker (pulls the
-      # official image) and extra-validators (simd, also from an image). marood
-      # (private binary) and evmd-docker (image not yet published) are excluded
-      # until their infra lands.
+      # Feature project tests whose deps exist on CI: xplad-docker (official
+      # image), evmd-docker (the digest-pinned image starskiff publishes) and
+      # extra-validators (simd, also from an image). marood (private binary)
+      # stays excluded.
       - name: Feature tests (container runtime + multi-validator)
-        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/extra-validators.test.ts
+        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/evmd-docker.test.ts test/extra-validators.test.ts
