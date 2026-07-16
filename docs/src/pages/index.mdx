@@ -42,4 +42,4 @@ await instance.start(); // real simd node, first block in seconds
 await instance.stop(); // node killed, temp home dir removed
 ```
 
-Not a mock — the actual Go binary, booted with a patched genesis, funded accounts, and health-checked until the first block. Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum).
+Not a mock — the actual node (from a binary or a chain image), booted with a patched genesis, funded accounts, and health-checked until the first block. Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum).

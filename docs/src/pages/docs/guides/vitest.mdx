@@ -52,9 +52,9 @@ it('queries balance', async () => {
 });
 ```
 
-## Skipping when the binary is missing
+## Skipping when a runtime is missing
 
-Instances need their chain binary on `PATH`. If your CI doesn't always have it, gate the project or suite — for example with a vitest [workspace project](https://vitest.dev/guide/projects) that only runs integration tests when binaries exist, or `describe.skipIf`.
+Image-backed instances need Docker; binary-backed ones need their executable on `PATH`. If your CI doesn't always have the right one, gate the project or suite — for example with a vitest [workspace project](https://vitest.dev/guide/projects) that only runs integration tests when the runtime is available, or `describe.skipIf`.
 
 ## Timeouts
 

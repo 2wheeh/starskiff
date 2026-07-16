@@ -40,10 +40,10 @@ Instance.xplad({ binary: 'xplad' });
 
 Naming a `binary` opts out of the container runtime entirely.
 
-The inverse works too: instances that default to a binary (`simd`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
+The inverse works too: instances that default to a binary (`gaiad`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
 
 ```ts
-Instance.simd({ image: 'my-registry/simd:dev' });
+Instance.gaiad({ image: 'my-registry/gaiad:dev' });
 ```
 
 ## Where the image comes from
@@ -55,10 +55,15 @@ An instance is container-first when it can source a node from an image. That ima
 
 | Instance | Default runtime | Source |
 | -------- | --------------- | ------ |
-| `xplad` | Container | Official image, tracks mainnet |
+| [`simd`](/docs/instances/simd) | Container | Official `ghcr.io/cosmos/simapp` image (minor-line pin) |
+| `wasmd` | Container | Official `cosmwasm/wasmd` image, exact version tags |
+| `xplad` | Container | Official `ghcr.io/xpladev/xpla` image, tracks mainnet |
 | `evmd` | Container | **starskiff-published** image (cosmos/evm ships none) |
-| [`simd`](/docs/instances/simd) | Binary | Reference app; simapp image only tags minor lines |
-| others | Binary | No usable image yet (see [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json)) |
+| `gaiad` | Binary | official image lags mainnet |
+| `hermes` | Binary | IBC relayer, run as a host process |
+| `marood` | Binary | private node source — no public image |
+
+The binary-backed rows are the exceptions; every other instance defaults to an image. `gaiad` and `hermes` are provisioned for starskiff's own CI via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (with the reason each one can't be image-first); `marood` is private, so it's never in that manifest — you inject its binary or a private image yourself. starskiff doesn't publish an image for every missing/stale upstream — it does so only for the deliberate allowlist in `config/images.json` (currently just evmd).
 
 ### Images we publish
 

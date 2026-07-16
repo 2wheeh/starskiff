@@ -113,7 +113,7 @@ jobs:
         run: pnpm test:integration
 
       # Feature project tests whose deps exist on CI: xplad-docker (pulls the
-      # official image) and extra-validators (uses the simd binary). marood
+      # official image) and extra-validators (simd, also from an image). marood
       # (private binary) and evmd-docker (image not yet published) are excluded
       # until their infra lands.
       - name: Feature tests (container runtime + multi-validator)

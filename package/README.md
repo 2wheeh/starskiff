@@ -22,8 +22,8 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 
 | Instance            | Source (default)                       | Modules                                         | Use case                       |
 | ------------------- | -------------------------------------- | ----------------------------------------------- | ------------------------------ |
-| `Instance.wasmd()`  | binary `wasmd`                         | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC   |
-| `Instance.simd()`   | binary `simd`                          | bank, staking, gov, mint                        | Lightweight Cosmos SDK testing |
+| `Instance.wasmd()`  | image `cosmwasm/wasmd`                 | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC   |
+| `Instance.simd()`   | image `ghcr.io/cosmos/simapp`          | bank, staking, gov, mint                        | Lightweight Cosmos SDK testing |
 | `Instance.gaiad()`  | binary `gaiad`                         | Cosmos Hub (IBC)                                | IBC counterparty chain         |
 | `Instance.xplad()`  | image `ghcr.io/xpladev/xpla`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
 | `Instance.evmd()`   | image `ghcr.io/2wheeh/starskiff/evmd`  | Cosmos SDK + **EVM** (cosmos/evm reference)     | Canonical cosmos-evm precompiles |
@@ -42,35 +42,17 @@ pnpm add -D starskiff
 
 ### Prerequisites
 
-Install the binary for the instance you need. Requires [Go](https://go.dev/dl/) >= 1.25.
-
-**simd** (Cosmos SDK simapp):
+Image-backed instances (`simd`, `wasmd`, `xplad`, `evmd`) need only a running **Docker** — the image is pulled on first use. Binary-backed instances (`gaiad`, `hermes`, and the private `marood`) need their executable on `PATH`; download an official release or build from source, e.g.:
 
 ```bash
-git clone --depth 1 https://github.com/cosmos/cosmos-sdk.git /tmp/cosmos-sdk
-cd /tmp/cosmos-sdk/simapp && go build -o ~/go/bin/simd ./simd/
+# gaiad — official release binary
+gh release download v27.5.0 --repo cosmos/gaia --pattern "gaiad-v27.5.0-linux-amd64" --dir /tmp
+install -m755 /tmp/gaiad-v27.5.0-linux-amd64 ~/go/bin/gaiad
 ```
 
-**wasmd** (CosmWasm — includes IBC):
+Any instance also accepts a `binary` (local executable) or `image` (custom tag) override — the [escape hatch](./../docs/src/pages/docs/guides/docker.mdx#escape-hatches) for local development, e.g. running an image-backed chain from a source build without Docker.
 
-```bash
-git clone --depth 1 https://github.com/CosmWasm/wasmd.git /tmp/wasmd
-cd /tmp/wasmd && go build -o ~/go/bin/wasmd ./cmd/wasmd/
-```
-
-### Prebuilt binaries (CI)
-
-Prebuilt `linux/amd64` binaries are available in [GitHub Releases](https://github.com/2wheeh/starskiff/releases/tag/binaries/latest) for CI environments:
-
-```bash
-# Download and install (e.g. in GitHub Actions)
-gh release download "binaries/latest" --repo 2wheeh/starskiff --pattern "*.gz" --dir /tmp
-gunzip -c /tmp/simd-linux-amd64.gz > /usr/local/bin/simd
-gunzip -c /tmp/wasmd-linux-amd64.gz > /usr/local/bin/wasmd
-chmod +x /usr/local/bin/simd /usr/local/bin/wasmd
-```
-
-> For local development on macOS/Windows, build from source using the instructions above.
+See the [CI guide](./../docs/src/pages/docs/guides/ci.mdx) for provisioning binaries on GitHub Actions.
 
 ## Usage
 
@@ -315,9 +297,9 @@ Recommended: fund multiple accounts in genesis, assign each test its own account
 
 |              | Starship                   | starskiff              |
 | ------------ | -------------------------- | -------------------- |
-| Infra        | Kubernetes + Helm + Docker | None (child process) |
+| Infra        | Kubernetes + Helm + Docker | None — child process (binary or `docker run`) |
 | Startup      | 2-5 min                    | 3-5 sec              |
-| Dependencies | K8s cluster                | Go binary            |
+| Dependencies | K8s cluster                | A binary or Docker   |
 | State reset  | Helm redeploy (minutes)    | kill + restart (~3s) |
 | Best for     | Production simulation      | Dev/test             |
 
