@@ -2,7 +2,7 @@
 
 ## Overview
 
-starskiff spawns **real Cosmos SDK nodes** as child processes for integration tests — no Docker, no Kubernetes, just the chain's Go binary. An instance boots in seconds: `init` → genesis patching → account funding → `gentx` → `start` → health-polled until the first block.
+starskiff spawns **real Cosmos SDK nodes** as child processes for integration tests — no Kubernetes, just the chain's node from a binary or a container image. An instance boots in seconds: `init` → genesis patching → account funding → `gentx` → `start` → health-polled until the first block.
 
 :::warning
 starskiff is under active development. APIs may change without notice until v1.0.

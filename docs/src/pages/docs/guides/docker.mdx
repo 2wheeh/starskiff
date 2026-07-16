@@ -40,10 +40,10 @@ Instance.xplad({ binary: 'xplad' });
 
 Naming a `binary` opts out of the container runtime entirely.
 
-The inverse works too: instances that default to a binary (because their chain publishes no image — `simd`, `evmd`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
+The inverse works too: instances that default to a binary (`simd`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
 
 ```ts
-Instance.evmd({ image: 'my-registry/evmd:dev' });
+Instance.simd({ image: 'my-registry/simd:dev' });
 ```
 
 ## Where the image comes from
@@ -71,6 +71,10 @@ The list of what we publish is an explicit allowlist in [`config/images.json`](h
 :::
 
 Building a chain image ourselves means we redistribute someone else's node, so images are pinned to an exact upstream ref + commit and (after first publish) to the multi-arch manifest **digest**, with build provenance and an SBOM attached.
+
+:::note
+The evmd image is the first of these and hasn't been published yet — its manifest digest is still `null`. Until the `publish-images` workflow runs, `Instance.evmd()`'s default image won't pull, so run `Instance.evmd({ binary: 'evmd' })` or point `image` at a locally-built tag in the meantime.
+:::
 
 ## CI
 

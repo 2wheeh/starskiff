@@ -7,7 +7,7 @@ Instances backed by an official chain image need no CI setup at all — Docker i
       - run: pnpm vitest run    # image pulled on demand, no binary provisioning
 ```
 
-The rest of this guide is about the chains that *don't* publish an image (`simd`, `evmd`, and most cosmos-evm networks): those need their binary on `PATH`, and getting it onto the runner is the only CI-specific work.
+The rest of this guide is about the chains sourced from a binary (`simd`, `wasmd`, `gaiad`, `hermes`, and `marood`): those need their binary on `PATH`, and getting it onto the runner is the only CI-specific work. (`evmd` is container-first on an [image starskiff publishes](/docs/guides/docker#images-we-publish), so it needs no binary provisioning.)
 
 **Use prebuilt binaries.** A chain binary is a large Go program; compiling one from source takes minutes of CI time per run — at that point you've spent the startup advantage that makes starskiff worth using. Build (or download) each binary **once**, store it where CI can fetch it, and every test run afterwards pays only a seconds-long download.
 

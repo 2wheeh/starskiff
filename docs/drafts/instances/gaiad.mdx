@@ -1,6 +1,6 @@
 # gaiad [Cosmos Hub — IBC counterparty]
 
-`Instance.gaiad()` boots a [Cosmos Hub](https://github.com/cosmos/gaia) node. Gaia ships IBC and (v27+) CosmWasm, which makes it useful as an IBC counterparty chain.
+`Instance.gaiad()` boots a [Cosmos Hub](https://github.com/cosmos/gaia) node. Gaia ships IBC, which makes it useful as an IBC counterparty chain.
 
 The instance patches Gaia's `feemarket` genesis — `fee_denom` is aligned with the instance `denom`, and gas prices are set near zero so test transactions don't need fee tuning.
 

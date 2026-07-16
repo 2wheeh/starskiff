@@ -5,7 +5,7 @@ import pkg from 'starskiff/package.json' with { type: 'json' };
 export default defineConfig({
   title: 'starskiff',
   description:
-    'Real Cosmos SDK nodes as ephemeral test instances — child processes, no Docker, no Kubernetes.',
+    'Real Cosmos SDK nodes as ephemeral test instances — from a binary or an official chain image, no Kubernetes.',
   renderStrategy: 'full-static',
   sidebar: [
     {
