@@ -155,6 +155,14 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   name: string
   /** Hook to patch genesis after default denom patching. */
   patchGenesis?: (genesis: Genesis) => Genesis
+  /**
+   * Hook to patch genesis AFTER `collect-gentxs` — the last SDK command that
+   * rewrites genesis.json. The SDK re-marshals top-level fields on every
+   * genesis command (e.g. `initial_height` back to a JSON number), so edits to
+   * those fields must happen here; `patchGenesis` edits to `app_state` survive
+   * because the SDK carries it as a raw message.
+   */
+  finalizeGenesis?: (genesis: Genesis) => Genesis
   /** Additional app.toml patches. Merged after default patches. */
   extraAppToml?: Record<string, string>
   /** Additional config.toml patches. Merged after default patches. */
@@ -203,6 +211,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     grpcWebPort = 9091,
     pprofPort = 6060,
     patchGenesis,
+    finalizeGenesis,
     extraAppToml,
     extraConfigToml,
     extraStartArgs,
@@ -392,6 +401,11 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         }
 
         await run(['genesis', 'collect-gentxs'])
+
+        if (finalizeGenesis) {
+          const finalized = finalizeGenesis(JSON.parse(fs.readFileSync(genesisPath, 'utf8')))
+          fs.writeFileSync(genesisPath, JSON.stringify(finalized, null, 2))
+        }
 
         // 5. Patch configs for port bindings
         patchToml(path.join(homeDir, 'config', 'config.toml'), {
@@ -612,6 +626,8 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
   binary: string
   name: string
   patchGenesis?: (genesis: Genesis) => Genesis
+  /** Post-`collect-gentxs` genesis patch, forwarded to cosmosBase. */
+  finalizeGenesis?: (genesis: Genesis) => Genesis
   /** Additional config.toml patches, forwarded to cosmosBase. */
   extraConfigToml?: Record<string, string>
   /** Extra `start` command args, forwarded to cosmosBase. */

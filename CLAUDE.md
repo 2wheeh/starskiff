@@ -12,15 +12,15 @@ package/src/
 ├── docker.ts             # container runtime: resolveInstanceImage, run/start args, pull, cleanup
 ├── process.ts            # tinyexec-based process wrapper
 ├── utils.ts              # stripColors, toArgs
-└── instances/            # simd, wasmd, gaiad, xplad, evmd, marood, hermes
+└── instances/            # simd, wasmd, gaiad, xplad, xrplevm, mantra, evmd, marood, hermes
 ```
 
 ### Source policy (image-first)
 
 Every instance routes through `resolveInstanceImage(name, params, defaultImage?)`:
 
-- Usable version-pinned image exists → it's the default (`simd`, `wasmd`, `xplad`, `evmd`).
-- No usable image → **injection required**: caller must pass `image` or `binary`; constructing without either throws (`gaiad` — official image lags mainnet; `marood` — private node source, never redistribute).
+- Usable version-pinned image exists → it's the default (`simd`, `wasmd`, `gaiad`, `xplad`, `xrplevm`, `mantra`, `evmd`).
+- No usable image → **injection required**: caller must pass `image` or `binary`; constructing without either throws (`marood` — private node source, never redistribute).
 - `image` and `binary` are mutually exclusive; `binary` opts out of the container runtime.
 - `hermes` is the exception: an IBC relayer run as a host binary, outside the container runtime.
 
@@ -45,7 +45,7 @@ Follow an existing thin wrapper (`package/src/instances/`): resolve the image (p
 
 ## Config
 
-- `config/binaries.json` — binaries starskiff's CI provisions (gaiad, hermes), with a `reason` per entry.
+- `config/binaries.json` — binaries starskiff's CI provisions (currently just hermes), with a `reason` per entry.
 - `config/images.json` — allowlist of images starskiff publishes to GHCR (currently evmd). HARD RULE: maroo/marood must never appear here (`scripts/check-image-allowlist.mjs` enforces).
 
 ## Design decisions

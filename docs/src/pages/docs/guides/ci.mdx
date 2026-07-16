@@ -7,60 +7,15 @@
 - run: pnpm vitest run # image-backed instances just work; images pulled on demand
 ```
 
-The rest of this guide covers the instances that **do** need provisioning — those without a usable default image, plus the `hermes` relayer:
+The one built-in exception is the **`hermes` relayer** — not a chain node, it runs as a host binary next to the chains, so CI puts it on `PATH`. Beyond that, provisioning only comes up when a binary is *your* choice: [`marood`](/docs/chains) (private, no default image), or any instance you deliberately run with `binary:` instead of its image. starskiff's own CI uses the image defaults and provisions only `hermes`, via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json).
 
-| Instance | Why CI must provision it                                                             |
-| -------- | ------------------------------------------------------------------------------------ |
-| `gaiad`  | no default image (the official one lags mainnet) — [injection required](/docs/chains) |
-| `hermes` | an IBC relayer, run as a host binary next to the chains                              |
+## Provisioning a binary
 
-(`marood` requires injection too, but its node source is private — provision its binary or a private image only where that's allowed.)
-
-Getting a binary onto the runner is the only CI-specific work. starskiff's own CI uses the image defaults and provisions binaries only for the table above, via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json).
-
-## Binary-provisioned exceptions
-
-For the chains above, prefer prebuilt binaries over building from source: a chain binary is a large Go program, and compiling one per CI run spends the startup advantage that makes starskiff worth using. Build (or download) each binary **once**, store it where CI can fetch it, and every run afterwards pays only a seconds-long download.
+When you do need one, prefer prebuilt binaries over building from source: a chain binary is a large Go program, and compiling one per CI run spends the startup advantage that makes starskiff worth using. Build (or download) each binary **once**, store it where CI can fetch it, and every run afterwards pays only a seconds-long download.
 
 ### Prefer prebuilt over source-build
 
-Store binaries as GitHub release assets and download them at the start of the job. This is what starskiff's own CI does — versions are pinned in a config file, a manual [`release-binaries.yml`](https://github.com/2wheeh/starskiff/blob/main/.github/workflows/release-binaries.yml) workflow builds and uploads them once, and [`ci.yml`](https://github.com/2wheeh/starskiff/blob/main/.github/workflows/ci.yml) downloads them per run:
-
-```yaml
-name: Test
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Download chain binaries
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download v27.5.0 --repo cosmos/gaia \
-            --pattern "gaiad-v27.5.0-linux-amd64" --dir /tmp
-          install -m755 /tmp/gaiad-v27.5.0-linux-amd64 /usr/local/bin/gaiad
-          gaiad version
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm vitest run
-```
-
-Some upstreams publish official release binaries you can download straight instead of building anything (e.g. the gaia chain, the hermes relayer):
+Many upstreams publish official release binaries you can download straight — the hermes relayer, or e.g. the Hub if you want `Instance.gaiad({ binary: 'gaiad' })` on an exact-version build instead of its image:
 
 ```yaml
 - name: Download hermes

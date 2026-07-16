@@ -98,9 +98,10 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
-      # Feature project tests whose deps exist on CI: xplad-docker (official
-      # image), evmd-docker (the digest-pinned image starskiff publishes) and
-      # extra-validators (simd, also from an image). marood (private binary)
-      # stays excluded.
+      # Feature project tests whose deps exist on CI: the *-docker suites pull
+      # public images (xplad/mantra official, xrplevm amd64-only — fine on
+      # amd64 runners, evmd the digest-pinned image starskiff publishes), and
+      # extra-validators uses the simd image. marood (private binary) stays
+      # excluded.
       - name: Feature tests (container runtime + multi-validator)
-        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/evmd-docker.test.ts test/extra-validators.test.ts
+        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/evmd-docker.test.ts test/xrplevm-docker.test.ts test/mantra-docker.test.ts test/extra-validators.test.ts

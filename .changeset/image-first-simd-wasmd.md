@@ -12,9 +12,8 @@ container image wherever a usable, version-pinned one exists:
 - `wasmd` → `cosmwasm/wasmd:v0.61.14` (official, exact version tags)
 
 Both take the shared escape hatches: pass `binary` to run a local executable, or
-`image` to bind your own. The exceptions that stay binary-provisioned are `gaiad`
-(official image lags mainnet), `hermes` (a relayer, run as a host process), and the
-private `marood`.
+`image` to bind your own. The exceptions are `hermes` (a relayer, run as a host
+process) and the private `marood` (no default image — inject a source).
 
 **Breaking**: `Instance.simd()` and `Instance.wasmd()` now require Docker by default.
 Pass `binary: 'simd'` / `binary: 'wasmd'` to keep the previous behaviour.
