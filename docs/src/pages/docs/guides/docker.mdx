@@ -32,10 +32,10 @@ Not every chain ships an image, and sometimes you need your own build. Two ways 
 
 ```ts
 // 1. Bind your own image (a fork, a local build, a private registry)
-Instance.xplad({ image: 'my-registry/xpla:custom' });
+Instance.simd({ image: 'my-registry/simd:custom' });
 
 // 2. Use a binary on PATH — the classic runtime
-Instance.xplad({ binary: 'xplad' });
+Instance.simd({ binary: 'simd' });
 ```
 
 Naming a `binary` opts out of the container runtime entirely.
@@ -53,17 +53,15 @@ An instance is container-first when it can source a node from an image. That ima
 1. **The chain's own official image**, when it exists and tracks the live network — e.g. `xplad` runs `ghcr.io/xpladev/xpla`.
 2. **An image starskiff builds and publishes**, when the chain ships none (or a stale one) — e.g. `evmd` runs `ghcr.io/2wheeh/starskiff/evmd`, built from `cosmos/evm` source because cosmos/evm publishes no image.
 
-| Instance | Default runtime | Source |
-| -------- | --------------- | ------ |
-| [`simd`](/docs/instances/simd) | Container | Official `ghcr.io/cosmos/simapp` image (minor-line pin) |
-| `wasmd` | Container | Official `cosmwasm/wasmd` image, exact version tags |
-| `xplad` | Container | Official `ghcr.io/xpladev/xpla` image, tracks mainnet |
-| `evmd` | Container | **starskiff-published** image (cosmos/evm ships none) |
-| `gaiad` | Binary | official image lags mainnet |
-| `hermes` | Binary | IBC relayer, run as a host process |
-| `marood` | Binary | private node source — no public image |
+| Instance                       | Default runtime | Source                                                  |
+| ------------------------------ | --------------- | ------------------------------------------------------- |
+| [`simd`](/docs/instances/simd) | Container       | Official `ghcr.io/cosmos/simapp` image (minor-line pin) |
+| `wasmd`                        | Container       | Official `cosmwasm/wasmd` image, exact version tags     |
+| `xplad`                        | Container       | Official `ghcr.io/xpladev/xpla` image, tracks mainnet   |
+| `evmd`                         | Container       | **starskiff-published** image (cosmos/evm ships none)   |
+| `hermes`                       | Binary          | IBC relayer, run as a host process                      |
 
-The binary-backed rows are the exceptions; every other instance defaults to an image. `gaiad` and `hermes` are provisioned for starskiff's own CI via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (with the reason each one can't be image-first); `marood` is private, so it's never in that manifest — you inject its binary or a private image yourself. starskiff doesn't publish an image for every missing/stale upstream — it does so only for the deliberate allowlist in `config/images.json` (currently just evmd).
+The binary-backed rows are the exceptions; every other instance defaults to an image. `hermes` is provisioned for starskiff's own CI via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (with the reason each one can't be image-first); `marood` is private, so it's never in that manifest — you inject its binary or a private image yourself. starskiff doesn't publish an image for every missing/stale upstream — it does so only for the deliberate allowlist in `config/images.json` (currently just evmd).
 
 ### Images we publish
 
@@ -71,22 +69,14 @@ For chains with no usable upstream image, starskiff builds a multi-arch (amd64 +
 
 The list of what we publish is an explicit allowlist in [`config/images.json`](https://github.com/2wheeh/starskiff/blob/main/config/images.json) — the single source of truth for both the publish workflow and the instance's default image. A dedicated `publish-images` workflow builds each entry; targets are never derived from the instance list, so a chain is only ever redistributed by a deliberate edit.
 
-:::warning
-**maroo is never published here.** Its node source is private, so it must not be redistributed. maroo stays local-only: inject your own image or binary (`Instance.marood({ image })` / `{ binary }`), or use a private image in a CI environment that allows it. A CI guard fails the build if any publish target mentions `maroo`/`marood`.
-:::
-
 Building a chain image ourselves means we redistribute someone else's node, so images are pinned to an exact upstream ref + commit and (after first publish) to the multi-arch manifest **digest**, with build provenance and an SBOM attached.
-
-:::note
-The evmd image is the first of these and hasn't been published yet — its manifest digest is still `null`. Until the `publish-images` workflow runs, `Instance.evmd()`'s default image won't pull, so run `Instance.evmd({ binary: 'evmd' })` or point `image` at a locally-built tag in the meantime.
-:::
 
 ## CI
 
 Both runtimes work in CI. The container runtime removes the binary-provisioning step entirely — no build job, no release assets to keep in sync — at the cost of an image pull per cold run. See the [CI guide](/docs/guides/ci).
 
 ```yaml
-      - run: pnpm vitest run   # docker is preinstalled on GitHub runners
+- run: pnpm vitest run # docker is preinstalled on GitHub runners
 ```
 
 ## Caveats

@@ -3,20 +3,19 @@
 **Prefer images.** starskiff is [image-first](/docs/guides/docker): an instance backed by a usable chain image needs no CI setup at all. Docker is preinstalled on GitHub runners, the image is pulled on demand, and nothing is provisioned.
 
 ```yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm vitest run    # image-backed instances just work; images pulled on demand
+- run: pnpm install --frozen-lockfile
+- run: pnpm vitest run # image-backed instances just work; images pulled on demand
 ```
 
-`simd`, `wasmd`, and `xplad` run from an official image, so they need no binary on the runner. `evmd` runs an image starskiff publishes — but until that image's [first publish](/docs/guides/docker#images-we-publish), it's provisioned as a binary too (the harness pins `binary: 'evmd'`); once published it joins the no-setup group.
+`Instance` runs an image starskiff publishes — but until that image's [first publish](/docs/guides/docker#images-we-publish), it's provisioned as a binary too (the harness pins `binary: 'evmd'`); once published it joins the no-setup group.
 
 The rest of this guide covers the **exceptions** — instances with no usable upstream image, which stay binary-provisioned (chain nodes, plus the `hermes` relayer):
 
-| Instance | Why it's a binary exception |
-| -------- | --------------------------- |
-| `gaiad` | official image lags mainnet (v25/v26 vs live v27.5.0) |
+| Instance | Why it's a binary exception                             |
+| -------- | ------------------------------------------------------- |
+| `gaiad`  | official image lags mainnet (v25/v26 vs live v27.5.0)   |
 | `hermes` | an IBC relayer, run as a host binary next to the chains |
-| `marood` | private node source — no public image (inject it yourself) |
-| `evmd` | *transitional* — until its published image exists |
+| `evmd`   | _transitional_ — until its published image exists       |
 
 Getting their binary onto the runner is the only CI-specific work. (A local `binary` or `image` override is the [escape hatch](/docs/guides/docker#escape-hatches) for development; starskiff's own CI uses the image defaults, provisioning a binary only for the exceptions above.)
 
@@ -65,14 +64,14 @@ jobs:
 Some upstreams publish official release binaries you can download straight instead of building anything (e.g. the gaia chain, the hermes relayer):
 
 ```yaml
-      - name: Download hermes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download v1.13.3 --repo informalsystems/hermes \
-            --pattern "hermes-v1.13.3-x86_64-unknown-linux-gnu.tar.gz" --dir /tmp
-          tar -xzf /tmp/hermes-*.tar.gz -C /tmp
-          mv /tmp/hermes /usr/local/bin/hermes
+- name: Download hermes
+  env:
+    GH_TOKEN: ${{ github.token }}
+  run: |
+    gh release download v1.13.3 --repo informalsystems/hermes \
+      --pattern "hermes-v1.13.3-x86_64-unknown-linux-gnu.tar.gz" --dir /tmp
+    tar -xzf /tmp/hermes-*.tar.gz -C /tmp
+    mv /tmp/hermes /usr/local/bin/hermes
 ```
 
 :::note
@@ -86,15 +85,15 @@ Chain binaries are platform-specific — assets built for `linux-amd64` won't ru
 Simplest to set up and always reproducible, but each cold run spends minutes in the Go compiler (the Go module/build cache softens repeat runs):
 
 ```yaml
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.25'
-          cache: true
+- uses: actions/setup-go@v6
+  with:
+    go-version: '1.25'
+    cache: true
 
-      - name: Build evmd
-        run: |
-          git clone --depth 1 https://github.com/cosmos/evm.git /tmp/cosmos-evm
-          cd /tmp/cosmos-evm/evmd && go build -o /usr/local/bin/evmd ./cmd/evmd/
+- name: Build evmd
+  run: |
+    git clone --depth 1 https://github.com/cosmos/evm.git /tmp/cosmos-evm
+    cd /tmp/cosmos-evm/evmd && go build -o /usr/local/bin/evmd ./cmd/evmd/
 ```
 
 Reasonable for a repo that runs CI rarely, or as the bootstrap step that produces the prebuilt assets above.
@@ -122,10 +121,7 @@ jobs:
 CI runners are slower than laptops — first block can take noticeably longer than the local 3–5s. Bump the instance timeout in CI:
 
 ```ts
-const instance = Instance.simd(
-  { chainId: 'test-1' },
-  { timeout: process.env.CI ? 120_000 : 60_000 },
-);
+const instance = Instance.simd({ chainId: 'test-1' }, { timeout: process.env.CI ? 120_000 : 60_000 });
 ```
 
 The same applies to vitest's `hookTimeout` if you boot instances in `beforeAll`/`globalSetup`.
