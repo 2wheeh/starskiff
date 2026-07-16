@@ -10,3 +10,6 @@ dist
 
 # vocs cache
 .vocs
+
+# oh-my-claudecode operational artifacts (research, handoffs, state)
+.omc/

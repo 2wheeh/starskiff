@@ -1,19 +1,19 @@
 # Why starskiff [A lightweight skiff to Starship's heavy vessel]
 
-starskiff is the lightweight counterpart to [Starship](https://github.com/cosmology-tech/starship): where Starship stands up multi-chain environments on Kubernetes, starskiff boots a single real chain node in seconds — for integration tests and CI. Not a mock; the actual Go binary.
+starskiff is the lightweight counterpart to [Starship](https://github.com/cosmology-tech/starship): where Starship stands up multi-chain environments on Kubernetes, starskiff boots a single real chain node in seconds — for integration tests and CI. Not a mock; the actual node — run from a binary or a container image.
 
 |              | Starship                   | starskiff            |
 | ------------ | -------------------------- | -------------------- |
-| Infra        | Kubernetes + Helm + Docker | None (child process) |
+| Infra        | Kubernetes + Helm + Docker | None — child process (binary or `docker run`) |
 | Startup      | 2–5 min                    | 3–5 sec              |
-| Dependencies | K8s cluster                | Go binary            |
+| Dependencies | K8s cluster                | A binary or Docker   |
 | State reset  | Helm redeploy (minutes)    | kill + restart (~3s) |
 | Best for     | Production simulation      | Dev/test             |
 
 ## Design decisions
 
 - **No Pool/Server layer** (unlike [prool](https://github.com/wevm/prool)) — Cosmos nodes expose their own RPC/gRPC/API, so a proxy is unnecessary.
-- **No Docker** — child processes only. Binaries come from `PATH`.
+- **No orchestration** — a node runs as a plain child process, whether from a binary on `PATH` or a container (`docker run`, still a child process). No Kubernetes, no scheduler.
 - **Fresh state per run** — each `start()` creates a temporary home directory, initializes a new chain from genesis, and `stop()` deletes it.
 - **SDK-version tolerant** — `cosmosBase` handles genesis structure differences across Cosmos SDK versions (v0.47 vs v0.50+), and warns when a config key it expected to patch has drifted.
 - **Extensible** — any Cosmos SDK binary works via [`cosmosBase` / `cosmosEvmBase`](/docs/guides/custom-chains).

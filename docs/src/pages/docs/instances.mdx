@@ -1,18 +1,18 @@
 # Instances [Prebuilt instance definitions for common Cosmos SDK chains]
 
-Every instance wraps the same lifecycle (`start` / `stop` / `restart`, events, status) around a specific chain binary. All accept [`CosmosChainParameters`](/docs/api/instance#parameters) plus chain-specific extras.
+Every instance wraps the same lifecycle (`start` / `stop` / `restart`, events, status) around a specific chain node — sourced from a container image or a binary. All accept [`CosmosChainParameters`](/docs/api/instance#parameters) plus chain-specific extras.
 
-| Instance             | Binary   | Modules                                  | Use case                                     |
-| -------------------- | -------- | ---------------------------------------- | -------------------------------------------- |
-| [`Instance.simd()`](/docs/instances/simd)     | `simd`   | bank, staking, gov, mint                 | Lightweight Cosmos SDK testing               |
-| [`Instance.evmd()`](/docs/instances/evmd)     | `evmd`   | Cosmos SDK + **EVM** (cosmos/evm reference) | Canonical cosmos-evm precompile testing, EVM JSON-RPC |
-| [`Instance.hermes()`](/docs/instances/hermes) | `hermes` | — (IBC relayer)                          | Relaying between two chain instances         |
+| Instance             | Default source | Modules                                  | Use case                                     |
+| -------------------- | -------------- | ---------------------------------------- | -------------------------------------------- |
+| [`Instance.simd()`](/docs/instances/simd)     | image `ghcr.io/cosmos/simapp` | bank, staking, gov, mint                 | Lightweight Cosmos SDK testing               |
+| [`Instance.evmd()`](/docs/instances/evmd)     | image (starskiff-published) | Cosmos SDK + **EVM** (cosmos/evm reference) | Canonical cosmos-evm precompile testing, EVM JSON-RPC |
+| [`Instance.hermes()`](/docs/instances/hermes) | binary `hermes` | — (IBC relayer)                          | Relaying between two chain instances         |
 
 The package also ships `Instance.wasmd()` (CosmWasm + IBC), `Instance.gaiad()` (Cosmos Hub), `Instance.xplad()` (XPLA), and `Instance.marood()` — their docs are TBD.
 
 ## Choosing an instance
 
-- **simd** for plain Cosmos SDK testing with the lightest binary.
+- **simd** for plain Cosmos SDK testing — runs from the official simapp image.
 - **evmd** when you need an EVM: it additionally exposes an `evmPort` / `evmUrl` (JSON-RPC) and uses `eth_secp256k1` keys at coin type 60.
 - **hermes** to relay IBC packets between two running chain instances.
 - Your chain isn't here? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.

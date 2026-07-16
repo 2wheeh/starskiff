@@ -3,27 +3,36 @@
 > [!WARNING]
 > This project is under active development. APIs may change without notice until v1.0.
 
-Real Cosmos SDK nodes as ephemeral test instances — spawned as child processes, no Docker, no Kubernetes.
+Real Cosmos SDK nodes as ephemeral test instances — run from a local binary or an official chain image, no Kubernetes.
 
-starskiff is the lightweight skiff to [Starship](https://github.com/cosmology-tech/starship)'s heavy vessel: where Starship stands up multi-chain environments on Kubernetes, starskiff boots a single real chain node in seconds — for integration tests and CI. Not a mock; the actual Go binary.
+starskiff is the lightweight skiff to [Starship](https://github.com/cosmology-tech/starship)'s heavy vessel: where Starship stands up multi-chain environments on Kubernetes, starskiff boots a single real chain node in seconds — for integration tests and CI. Not a mock; the actual node. Each instance runs as a child process, sourced either from a binary on `PATH` or a container image (`docker run`, still a plain child process — no orchestrator).
 
 Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum).
 
 ## Features
 
-- Spawn real Cosmos SDK nodes as child processes
-- No Docker, no Kubernetes — just a Go binary
+- Spawn real Cosmos SDK nodes as child processes — from a binary or a container image
+- No Kubernetes, no orchestration — just a process
 - Genesis account injection with mnemonic recovery
 - Full lifecycle management (start/stop/restart)
-- Compatible with [@cosmjs/stargate](https://github.com/cosmos/cosmjs) and [@cosmjs/cosmwasm-stargate](https://github.com/cosmos/cosmjs) for testing
-- Extensible to any Cosmos SDK chain binary via `cosmosBase`
+- Compatible with [@cosmjs/stargate](https://github.com/cosmos/cosmjs) and [@cosmjs/cosmwasm-stargate](https://github.com/cosmos/cosmjs), and viem for EVM chains
+- Extensible to any Cosmos SDK chain binary via `cosmosBase` / `cosmosEvmBase`
 
 ## Instances
 
-| Instance           | Binary  | Modules                                         | Use case                     |
-| ------------------ | ------- | ----------------------------------------------- | ---------------------------- |
-| `Instance.simd()`  | `simd`  | bank, staking, gov, mint                        | Basic Cosmos SDK testing     |
-| `Instance.wasmd()` | `wasmd` | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC |
+| Instance            | Source (default)                       | Modules                                         | Use case                       |
+| ------------------- | -------------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `Instance.wasmd()`  | image `cosmwasm/wasmd`                 | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC   |
+| `Instance.simd()`   | image `ghcr.io/cosmos/simapp`          | bank, staking, gov, mint                        | Lightweight Cosmos SDK testing |
+| `Instance.gaiad()`  | binary `gaiad`                         | Cosmos Hub (IBC)                                | IBC counterparty chain         |
+| `Instance.xplad()`  | image `ghcr.io/xpladev/xpla`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
+| `Instance.evmd()`   | image `ghcr.io/2wheeh/starskiff/evmd`  | Cosmos SDK + **EVM** (cosmos/evm reference)     | Canonical cosmos-evm precompiles |
+| `Instance.marood()` | binary `marood`                        | Cosmos SDK + **EVM** + maroo modules            | maroo chain (viem `marooTestnet`) |
+| `Instance.hermes()` | binary `hermes`                        | — (IBC relayer)                                 | Relaying between two instances |
+
+Image-backed instances run the node from a container by default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. Binary-default **chain** instances accept `image` too (`hermes` is a relayer, not a chain node, so it has no image runtime). See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
+
+> `evmd`'s default image is built by the `publish-images` workflow; until it's published and digest-pinned, run `Instance.evmd({ binary: 'evmd' })` or point `image` at a locally-built tag.
 
 ## Install
 
@@ -33,35 +42,17 @@ pnpm add -D starskiff
 
 ### Prerequisites
 
-Install the binary for the instance you need. Requires [Go](https://go.dev/dl/) >= 1.25.
-
-**simd** (Cosmos SDK simapp):
+Image-backed instances (`simd`, `wasmd`, `xplad`, `evmd`) need only a running **Docker** — the image is pulled on first use. Binary-backed instances (`gaiad`, `hermes`, and the private `marood`) need their executable on `PATH`; download an official release or build from source, e.g.:
 
 ```bash
-git clone --depth 1 https://github.com/cosmos/cosmos-sdk.git /tmp/cosmos-sdk
-cd /tmp/cosmos-sdk/simapp && go build -o ~/go/bin/simd ./simd/
+# gaiad — official release binary
+gh release download v27.5.0 --repo cosmos/gaia --pattern "gaiad-v27.5.0-linux-amd64" --dir /tmp
+install -m755 /tmp/gaiad-v27.5.0-linux-amd64 ~/go/bin/gaiad
 ```
 
-**wasmd** (CosmWasm — includes IBC):
+Any instance also accepts a `binary` (local executable) or `image` (custom tag) override — the [escape hatch](./../docs/src/pages/docs/guides/docker.mdx#escape-hatches) for local development, e.g. running an image-backed chain from a source build without Docker.
 
-```bash
-git clone --depth 1 https://github.com/CosmWasm/wasmd.git /tmp/wasmd
-cd /tmp/wasmd && go build -o ~/go/bin/wasmd ./cmd/wasmd/
-```
-
-### Prebuilt binaries (CI)
-
-Prebuilt `linux/amd64` binaries are available in [GitHub Releases](https://github.com/2wheeh/starskiff/releases/tag/binaries/latest) for CI environments:
-
-```bash
-# Download and install (e.g. in GitHub Actions)
-gh release download "binaries/latest" --repo 2wheeh/starskiff --pattern "*.gz" --dir /tmp
-gunzip -c /tmp/simd-linux-amd64.gz > /usr/local/bin/simd
-gunzip -c /tmp/wasmd-linux-amd64.gz > /usr/local/bin/wasmd
-chmod +x /usr/local/bin/simd /usr/local/bin/wasmd
-```
-
-> For local development on macOS/Windows, build from source using the instructions above.
+See the [CI guide](./../docs/src/pages/docs/guides/ci.mdx) for provisioning binaries on GitHub Actions.
 
 ## Usage
 
@@ -306,21 +297,20 @@ Recommended: fund multiple accounts in genesis, assign each test its own account
 
 |              | Starship                   | starskiff              |
 | ------------ | -------------------------- | -------------------- |
-| Infra        | Kubernetes + Helm + Docker | None (child process) |
+| Infra        | Kubernetes + Helm + Docker | None — child process (binary or `docker run`) |
 | Startup      | 2-5 min                    | 3-5 sec              |
-| Dependencies | K8s cluster                | Go binary            |
+| Dependencies | K8s cluster                | A binary or Docker   |
 | State reset  | Helm redeploy (minutes)    | kill + restart (~3s) |
 | Best for     | Production simulation      | Dev/test             |
 
 ## TODO
 
-- [ ] `cosmosEvmBase` — EVM JSON-RPC port support for EVM-enabled chains (e.g. xpla, evmos)
 - [ ] `starskiff.config.ts` — config-based chain + relayer declaration
 - [ ] `starskiff/vitest` — vitest plugin (automatic setup/teardown via `vitestPlugin(config)`)
 - [ ] `starskiff/playwright` — playwright plugin (`playwrightPlugin(config)`)
-- [ ] Automatic port allocation (avoid port conflicts in parallel tests)
-- [x] `findFreePorts()` utility for direct `Instance` users
 - [ ] `starskiff/setup-binaries` GitHub Action for CI binary setup
+
+Shipped: `cosmosEvmBase` (EVM JSON-RPC instances), `findFreePorts()` (port allocation), the container runtime (`image` parameter).
 
 ## License
 
