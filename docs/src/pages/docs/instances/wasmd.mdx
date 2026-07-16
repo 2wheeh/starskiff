@@ -1,13 +1,8 @@
-# wasmd [CosmWasm + IBC — the recommended default]
+# wasmd [CosmWasm + IBC]
 
-`Instance.wasmd()` boots a [wasmd](https://github.com/CosmWasm/wasmd) node: Cosmos SDK + IBC + CosmWasm. It's a superset of `simd`, so it's the right default unless you specifically need a lighter binary.
+`Instance.wasmd()` boots a [wasmd](https://github.com/CosmWasm/wasmd) node: Cosmos SDK + IBC + CosmWasm. It's a superset of `simd` — the right pick when your tests touch contracts or IBC.
 
-## Install the binary
-
-```bash
-git clone --depth 1 https://github.com/CosmWasm/wasmd.git /tmp/wasmd
-cd /tmp/wasmd && go build -o ~/go/bin/wasmd ./cmd/wasmd/
-```
+Container-first on the official CosmWasm image (`cosmwasm/wasmd:v0.61.14`, exact version tags) — just Docker, no build. Pass `binary` to run a local executable, or `image` to bind your own.
 
 ## Usage
 
@@ -42,9 +37,10 @@ const result = await client.execute(address, contractAddress, executeMsg, 'auto'
 
 `WasmdParameters` extends [`CosmosChainParameters`](/docs/api/instance#parameters) with:
 
-| Parameter | Type     | Default   | Description        |
-| --------- | -------- | --------- | ------------------ |
-| `binary`  | `string` | `"wasmd"` | Path to the binary |
+| Parameter | Type     | Default                                        | Description                              |
+| --------- | -------- | ---------------------------------------------- | ---------------------------------------- |
+| `image`   | `string` | `WASMD_DEFAULT_IMAGE` (`cosmwasm/wasmd:v0.61.14`) | Container image                       |
+| `binary`  | `string` | `"wasmd"`                                      | Local binary (opts out of the container) |
 
 ## IBC
 

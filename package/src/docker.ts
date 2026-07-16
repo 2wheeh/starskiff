@@ -12,33 +12,50 @@ export const CONTAINER_HOME = '/chain'
  * "default artifact policy": there is NO automatic fallback chain — an instance
  * runs from exactly one source, chosen here.
  *
- * - neither `image` nor `binary` passed → the instance's default image
+ * - neither `image` nor `binary` passed → the instance's default image;
+ *   if the instance has none (no usable upstream image), throw — the caller
+ *   must inject an `image` or a `binary`
  * - `image` passed → that image (must be a non-empty ref)
  * - `binary` passed → `undefined`, i.e. opt out of docker and run the binary
  * - both passed → throw; they select mutually exclusive runtimes
  *
- * Presence is checked with `in`, so `{ image: undefined }` / `{ image: '' }` are
- * rejected rather than silently falling through to the binary runtime.
+ * Presence is checked with `in`, and present values must be non-empty strings —
+ * `{ image: undefined }` / `{ binary: undefined }` / `''` are rejected rather
+ * than silently selecting a runtime (or bypassing required injection).
  */
 export function resolveInstanceImage(
+  name: string,
   params: { image?: string; binary?: string },
-  defaultImage: string,
+  defaultImage?: string,
 ): string | undefined {
   const hasImage = 'image' in params
   const hasBinary = 'binary' in params
   if (hasImage && hasBinary) {
     throw new Error(
-      'Pass either "image" (container runtime) or "binary" (local binary on PATH), not both — ' +
+      `${name}: pass either "image" (container runtime) or "binary" (local binary on PATH), not both — ` +
       'they select mutually exclusive runtimes.',
     )
   }
   if (hasImage) {
     if (typeof params.image !== 'string' || params.image.trim() === '') {
-      throw new Error('"image" must be a non-empty image reference; omit it to use the default image.')
+      throw new Error(`${name}: "image" must be a non-empty image reference.`)
     }
     return params.image
   }
-  if (hasBinary) return undefined
+  if (hasBinary) {
+    // Mirror the image validation: `{ binary: undefined }` must not silently
+    // opt out of the container runtime (or bypass required injection).
+    if (typeof params.binary !== 'string' || params.binary.trim() === '') {
+      throw new Error(`${name}: "binary" must be a non-empty executable name or path.`)
+    }
+    return undefined
+  }
+  if (defaultImage === undefined) {
+    throw new Error(
+      `${name} has no default image, so the node source must be injected: pass ` +
+      '"image" (a container image ref) or "binary" (a local executable on PATH).',
+    )
+  }
   return defaultImage
 }
 

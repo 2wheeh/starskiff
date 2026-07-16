@@ -1,5 +1,6 @@
 import * as Instance from '../Instance.js'
 import { cosmosEvmBase, type CosmosEvmChainParameters, type Genesis } from '../cosmos.js'
+import { resolveInstanceImage } from '../docker.js'
 import { MAROO_PREINSTALLS, type EvmPreinstall } from './marood-preinstalls.js'
 
 export type { EvmPreinstall }
@@ -83,7 +84,13 @@ export const MAROO_DEFAULT_PRECOMPILES: readonly string[] = [
 ]
 
 export type MaroodParameters = CosmosEvmChainParameters & {
-  /** Path to the marood binary. @default "marood" */
+  /**
+   * Run from a local `marood` binary on `PATH`.
+   * marood's node source is private, so there is no default image — either
+   * this or `image` (e.g. a private image allowed in your CI) is required.
+   * (When `image` is passed instead, the executable inside the image is
+   * assumed to be named `marood`.)
+   */
   binary?: string
   /**
    * Network preset selecting chain ids and denoms. @default "testnet"
@@ -109,6 +116,11 @@ export type MaroodParameters = CosmosEvmChainParameters & {
  * 18-decimal `a(t)okrw` — starskiff's `denom` maps to the BOND denom here,
  * and the preset's `feeDenom` is wired into everything else.
  *
+ * marood has **no default image** — the node source is private and must not be
+ * redistributed — so the node source must be injected: pass `binary` (a local
+ * executable on PATH) or `image` (e.g. a private image where your CI allows
+ * it). Constructing without either throws.
+ *
  * A plain `marood init` writes cosmos/evm module defaults (evm_denom `aatom`,
  * empty bank metadata / erc20 pairs / precompiles / preinstalls) rather than
  * maroo's app-side defaults, so this instance mirrors the jq patches in the
@@ -120,6 +132,7 @@ export type MaroodParameters = CosmosEvmChainParameters & {
  * @example
  * ```ts
  * const instance = Instance.marood({
+ *   binary: 'marood', // or image: a private image ref
  *   accounts: [{ mnemonic: '...', coins: '1000000000000000000000atokrw' }],
  * })
  * await instance.start()
@@ -147,6 +160,9 @@ export const marood = Instance.define((parameters?: MaroodParameters) => {
 
   const feeDenom = preset.feeDenom
 
+  // No default image (private node source): image or binary required.
+  const image = resolveInstanceImage('marood', params)
+
   // Same three-state semantics as evmd: omitted → maroo default set; explicit
   // `undefined` → binary default (empty); `[]` / `[...]` → as given.
   const activeStaticPrecompiles =
@@ -155,6 +171,7 @@ export const marood = Instance.define((parameters?: MaroodParameters) => {
   return cosmosEvmBase({
     binary, name: 'marood', chainId, denom, prefix, validatorBalance, validatorStake,
     minimumGasPrices, ...rest,
+    image,
     activeStaticPrecompiles,
     // app.toml's compiled-in default is the mainnet EVM chain id; make the
     // preset authoritative for both networks.

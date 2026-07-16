@@ -40,10 +40,10 @@ Instance.simd({ binary: 'simd' });
 
 Naming a `binary` opts out of the container runtime entirely.
 
-The inverse works too: instances that default to a binary (`gaiad`, `marood`, …) accept an `image` just the same, so you can point them at any image you have:
+For instances with **no default image** ([`gaiad`, `marood`](/docs/chains)) these aren't overrides but a requirement: constructing one without `image` or `binary` throws.
 
 ```ts
-Instance.gaiad({ image: 'my-registry/gaiad:dev' });
+Instance.gaiad({ image: 'my-registry/gaiad:dev' }); // or { binary: 'gaiad' }
 ```
 
 ## Where the image comes from
@@ -61,7 +61,7 @@ An instance is container-first when it can source a node from an image. That ima
 | `evmd`                         | Container       | **starskiff-published** image (cosmos/evm ships none)   |
 | `hermes`                       | Binary          | IBC relayer, run as a host process                      |
 
-The binary-backed rows are the exceptions; every other instance defaults to an image. `hermes` is provisioned for starskiff's own CI via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (with the reason each one can't be image-first); `marood` is private, so it's never in that manifest — you inject its binary or a private image yourself. starskiff doesn't publish an image for every missing/stale upstream — it does so only for the deliberate allowlist in `config/images.json` (currently just evmd).
+`hermes` is the one deliberate binary default — a relayer that drives its own CLI and config on the host, not a chain node the container runtime boots. The remaining instances, [`gaiad` and `marood`](/docs/chains), have **no default at all**: gaia's official image lags mainnet and maroo's node source is private, so each requires an injected `image` or `binary`. starskiff's own CI provisions those binaries via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json) (except `marood`, which is private and never in that manifest). starskiff doesn't publish an image for every missing/stale upstream — only the deliberate allowlist in `config/images.json` (currently just evmd).
 
 ### Images we publish
 
