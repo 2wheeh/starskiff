@@ -7,7 +7,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['test/Instance.test.ts', 'test/smoke.test.ts', 'test/ports.test.ts', 'test/accounts.test.ts', 'test/extra-validator-stake.test.ts', 'test/images-manifest.test.ts', 'test/docker-runtime.test.ts', 'test/sort-coins.test.ts', 'test/marood-genesis.test.ts'],
+          include: ['test/Instance.test.ts', 'test/smoke.test.ts', 'test/ports.test.ts', 'test/accounts.test.ts', 'test/extra-validator-stake.test.ts', 'test/images-manifest.test.ts', 'test/docker-runtime.test.ts', 'test/sort-coins.test.ts', 'test/marood-genesis.test.ts', 'test/checksum-precompiles.test.ts', 'test/docker-pull-policy.test.ts'],
         },
       },
       {

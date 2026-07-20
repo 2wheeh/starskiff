@@ -17,7 +17,7 @@ The patch logic is exported as `patchMaroodGenesis` for testing.
 Also:
 
 - Multi-coin `accounts[].coins` strings are now sorted by denom automatically
-  (the SDK rejects unsorted denoms) — exported as `sortCoins`.
+  (the SDK rejects unsorted denoms).
 - A failed image pull now throws an actionable error naming the image,
   including docker's stderr tail, and pointing out that locally-built images
   (e.g. a private node image) must be built/loaded before starting.

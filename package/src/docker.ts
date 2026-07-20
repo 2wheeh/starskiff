@@ -179,19 +179,36 @@ export async function assertDockerAvailable(image: string): Promise<void> {
 }
 
 /**
- * Pulls the image if it isn't present locally.
+ * Ensures the image is present locally, pulling it if `pull` allows.
  *
  * `docker run` would pull implicitly, but a cold pull of a few hundred MB can
  * outlast the instance start timeout and would be invisible in the logs — so
  * pull up front, before the clock on `start()` matters.
  *
- * A failed pull throws an actionable error rather than a raw exit code:
- * absent locally AND in the registry is the normal shape for locally-built,
- * never-published images (e.g. marood's `maroo:local`), so name that case.
+ * `pull: 'never'` skips the registry round-trip entirely and fails fast when
+ * the image is absent locally — for images that are never published (e.g. a
+ * locally-built `maroo:local`), the pull is doomed anyway (and may hang on
+ * an auth prompt for a private registry) before reaching the same error.
+ *
+ * A failed pull (the default `'missing'` path) throws an actionable error
+ * rather than a raw exit code: absent locally AND in the registry is the
+ * normal shape for locally-built, never-published images, so name that case.
  */
-export async function ensureImage(image: string, onMessage?: (message: string) => void): Promise<void> {
+export async function ensureImage(
+  image: string,
+  opts?: { pull?: 'missing' | 'never'; onMessage?: (message: string) => void },
+): Promise<void> {
+  const { pull = 'missing', onMessage } = opts ?? {}
   const present = await x('docker', ['image', 'inspect', image], { nodeOptions: { stdio: 'pipe' } })
   if (present.exitCode === 0) return
+
+  if (pull === 'never') {
+    throw new Error(
+      `"${image}" is not present locally and pull is disabled ("pull: 'never'"). ` +
+      'Build or `docker load` it on this machine first, or drop `pull: \'never\'` ' +
+      'to allow a registry pull.',
+    )
+  }
 
   onMessage?.(`[starskiff] pulling ${image} (first run)\n`)
   const pulled = await x('docker', ['pull', image], { nodeOptions: { stdio: 'pipe' } })

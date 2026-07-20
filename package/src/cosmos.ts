@@ -5,7 +5,7 @@ import path from 'node:path'
 import { x } from 'tinyexec'
 import * as Instance from './Instance.js'
 import { createProcess } from './process.js'
-import { sortCoins } from './utils.js'
+import { sortCoins, toChecksumAddress } from './utils.js'
 import {
   assertDockerAvailable,
   CONTAINER_HOME,
@@ -107,6 +107,17 @@ export type CosmosChainParameters = {
    * child process — there's no orchestrator here.
    */
   image?: string
+  /**
+   * Pull behavior when `image` isn't present locally. Only meaningful with
+   * `image`.
+   *
+   * - `'missing'` (default): pull the image if it's absent locally.
+   * - `'never'`: fail fast with an actionable error if it's absent locally,
+   *   instead of paying a doomed registry round-trip — for images that are
+   *   never published (e.g. a locally-built `myimage:local`).
+   * @default 'missing'
+   */
+  pull?: 'missing' | 'never'
 }
 
 /** A Cosmos chain instance with chain-specific config exposed. */
@@ -223,6 +234,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     extraReadinessCheck,
     relayerHints,
     image,
+    pull,
   } = parameters
 
   const process = createProcess(name)
@@ -280,7 +292,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
       try {
         if (image) {
           await assertDockerAvailable(image)
-          await ensureImage(image, (message) => emitter.emit('message', message))
+          await ensureImage(image, { pull, onMessage: (message) => emitter.emit('message', message) })
         }
 
         // Both runtimes execute the same chain CLI against the same home dir —
@@ -639,6 +651,29 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
 }
 
 /**
+ * Normalizes an `active_static_precompiles` list to the form cosmos-evm
+ * genesis validation requires.
+ *
+ * cosmos-evm's precompile activation check compares the stored strings
+ * case-sensitively against the EIP-55 checksum form (`address.String()` in
+ * the Go static-precompiles keeper) — it does NOT normalize casing. So the
+ * stored values must themselves be checksummed, not lowercased (lowercasing
+ * silently disables any precompile whose checksum address contains a hex
+ * letter).
+ *
+ * Genesis validation separately requires the stored list to be
+ * `slices.IsSorted` on those exact strings, which is plain ascending string
+ * order — hence a plain `.sort()` on the checksummed values (not a
+ * lowercase-keyed sort, which could produce an array that fails Go's
+ * sortedness check).
+ *
+ * Exported for unit testing; used internally by {@link cosmosEvmBase}.
+ */
+export function normalizeActiveStaticPrecompiles(precompiles: readonly string[]): string[] {
+  return precompiles.map((a) => toChecksumAddress(a)).sort()
+}
+
+/**
  * Shared setup for EVM-enabled Cosmos SDK chains (e.g. xpla, evmos).
  *
  * Extends cosmosBase with JSON-RPC (EVM) port configuration in app.toml.
@@ -669,12 +704,7 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
           | { params: { active_static_precompiles?: readonly string[] } }
           | undefined
         if (evm?.params) {
-          // cosmos-evm genesis validation requires the list to be sorted by
-          // bytes20 order. Normalize to lowercase + ascending sort so callers
-          // don't have to think about it.
-          evm.params.active_static_precompiles = activeStaticPrecompiles
-            .map((a) => a.toLowerCase())
-            .sort()
+          evm.params.active_static_precompiles = normalizeActiveStaticPrecompiles(activeStaticPrecompiles)
         }
       }
       return userPatch ? userPatch(genesis) : genesis

@@ -1,3 +1,6 @@
+import { keccak_256 } from '@noble/hashes/sha3.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
+
 const ansiColorRegex =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: _
   /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g
@@ -5,6 +8,35 @@ const ansiColorRegex =
 /** Strips ANSI color codes from a string. */
 export function stripColors(message: string) {
   return message.replace(ansiColorRegex, '')
+}
+
+const addressPattern = /^(0x|0X)?[0-9a-fA-F]{40}$/
+
+/**
+ * EIP-55 checksum-cases a hex address: keccak-256 the lowercase hex digits
+ * (no `0x`, ASCII), then uppercase each hex letter whose corresponding
+ * checksum nibble is >= 8. Idempotent — checksumming an already-checksummed
+ * address returns it unchanged. Digit-only addresses are unaffected, since
+ * EIP-55 only cases `a-f` letters.
+ *
+ * Requires exactly 40 hex digits (an optional `0x`/`0X` prefix is stripped
+ * first) — anything shorter, longer, or non-hex throws rather than silently
+ * "checksumming" garbage.
+ */
+export function toChecksumAddress(address: string): string {
+  if (!addressPattern.test(address)) {
+    throw new Error(`toChecksumAddress: "${address}" is not a 40-hex-digit address (optionally 0x-prefixed).`)
+  }
+
+  const hex = (address.startsWith('0x') || address.startsWith('0X') ? address.slice(2) : address).toLowerCase()
+  const hashHex = bytesToHex(keccak_256(utf8ToBytes(hex)))
+
+  let checksummed = ''
+  for (let i = 0; i < hex.length; i++) {
+    const char = hex[i]
+    checksummed += /[a-f]/.test(char) && Number.parseInt(hashHex[i], 16) >= 8 ? char.toUpperCase() : char
+  }
+  return `0x${checksummed}`
 }
 
 type ParsedCoin = { amount: string; denom: string }

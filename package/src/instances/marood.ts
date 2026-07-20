@@ -87,6 +87,10 @@ export const MAROO_DEFAULT_PRECOMPILES: readonly string[] = [
  * Fixed maroo module params seeded by {@link patchMaroodGenesis}, verbatim
  * from the maroo repo's `local_node.sh`: agent registries (bech32 of
  * 0x8004…0001 / 0x8004…0002) and eas contracts (bech32 of 0x…06 / 07 / 08).
+ *
+ * Hardcoded, not parameters, because these are maroo protocol constants —
+ * identical across every deployment; forks needing different values can
+ * still override them via `patchGenesis`.
  */
 const MAROO_AGENT_IDENTITY_REGISTRY = 'maroo1sqzqqqqqqqqqqqqqqqqqqqqqqqqqqqqplfm99t'
 const MAROO_AGENT_REPUTATION_REGISTRY = 'maroo1sqzqqqqqqqqqqqqqqqqqqqqqqqqqqqqz36wnt5'

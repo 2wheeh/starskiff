@@ -46,6 +46,12 @@ For instances with **no default image** ([`marood`](/docs/chains)) these aren't 
 Instance.marood({ image: 'my-registry/marood:private' }); // or { binary: 'marood' }
 ```
 
+For an image that's built locally and never pushed to a registry, pass `pull: 'never'` — instead of attempting (and slowly failing) a registry pull when the image isn't present locally, it fails fast with an actionable error. Default is `'missing'` (pull only if absent locally); `pull` only matters alongside `image`.
+
+```ts
+Instance.marood({ image: 'marood:local', pull: 'never' });
+```
+
 ## Where the image comes from
 
 An instance is container-first when it can source a node from an image. That image comes from one of two places:

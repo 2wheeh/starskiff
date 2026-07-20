@@ -14,4 +14,14 @@ Instance.gaiad(); // official image out of the box
 Instance.marood({ binary: 'marood', network: 'testnet' }); // no default image — injection required
 ```
 
+`policyAdmin` and `minterAddress` are unset by default — pass them to claim the PCL precompile's admin methods and the OKRW `mint`/`burn` paths:
+
+```ts
+Instance.marood({
+  image: 'your-registry/marood:private',
+  policyAdmin: 'maroo1...',
+  minterAddress: 'maroo1...',
+});
+```
+
 Missing a chain? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.
