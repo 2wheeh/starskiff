@@ -1,5 +1,55 @@
 # starskiff
 
+## 0.6.0
+
+### Minor Changes
+
+- [#11](https://github.com/2wheeh/starskiff/pull/11) [`f1745a0`](https://github.com/2wheeh/starskiff/commit/f1745a0b86159710fc6dc5607c11721f62ce9b67) Thanks [@2wheeh](https://github.com/2wheeh)! - `activeStaticPrecompiles` entries are now stored in genesis in EIP-55
+  checksum form (previously lowercased). cosmos/evm forks decide precompile
+  activation by comparing the stored strings case-sensitively against
+  `address.String()` — lowercasing silently disabled any precompile whose
+  address contains a hex letter (empirically: maroo's agent precompile at
+  `0x…000A` answered `eth_call` with bare `0x`). The stored list stays
+  plain-string sorted, which is what the chain's genesis validation checks.
+  The normalization is internal — callers keep passing addresses in any
+  casing. `@noble/hashes` becomes a runtime dependency for the keccak-256
+  the checksumming needs.
+
+- [#9](https://github.com/2wheeh/starskiff/pull/9) [`65a3ad5`](https://github.com/2wheeh/starskiff/commit/65a3ad5739aa2b668db3aff692d1182e724541a4) Thanks [@2wheeh](https://github.com/2wheeh)! - `mantra` and `xrplevm` now activate their mainnet precompile sets by default.
+
+  A fresh `init` on cosmos/evm chains leaves `active_static_precompiles` empty,
+  so local `mantra`/`xrplevm` instances booted with every precompile disabled —
+  unlike their mainnets. Both instances now default to the set active on the
+  live network (queried from `mantra-1` / `xrplevm_1440000-1`), exported as
+  `MANTRA_DEFAULT_PRECOMPILES` and `XRPLEVM_DEFAULT_PRECOMPILES`. The
+  `activeStaticPrecompiles` parameter still overrides (same three-state
+  semantics as evmd/xplad).
+
+  Also fixes the docs build's twoslash support: the default ESNext target made
+  `@typescript/vfs` request `lib.es2025.*` files that typescript 5.9 doesn't
+  ship, failing every `ts twoslash` block; the docs site now pins the twoslash
+  target to ES2024 and enables twoslash on the flagship snippets.
+
+- [#11](https://github.com/2wheeh/starskiff/pull/11) [`f1745a0`](https://github.com/2wheeh/starskiff/commit/f1745a0b86159710fc6dc5607c11721f62ce9b67) Thanks [@2wheeh](https://github.com/2wheeh)! - `marood` now seeds the maroo module genesis params by default, mirroring the
+  maroo repo's `local_node.sh`: the `agent` registry addresses, the `eas`
+  contract addresses, `pcl.entrypoints` (the Entrypoint v8 preinstall, in
+  bech32), and `okrw.mint_denom` per network preset. Previously a bare init
+  genesis left these at Go defaults, so the maroo precompiles' constructors
+  failed at startup and the precompiles were silently dropped from the EVM's
+  available set — consumers had to reverse-engineer the seeding themselves.
+  User-specific knobs are new parameters: `policyAdmin` (`pcl.policy_admin`),
+  `minterAddress` (`okrw.minter_address`), and `entrypoints` to override the
+  default.
+  The patch logic is exported as `patchMaroodGenesis` for testing.
+
+  Also:
+
+  - Multi-coin `accounts[].coins` strings are now sorted by denom automatically
+    (the SDK rejects unsorted denoms).
+  - A failed image pull now throws an actionable error naming the image,
+    including docker's stderr tail, and pointing out that locally-built images
+    (e.g. a private node image) must be built/loaded before starting.
+
 ## 0.5.0
 
 ### Minor Changes
