@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPublicClient, http } from 'viem';
-import { Instance, findFreePorts, MANTRA_DEFAULT_IMAGE } from '../src/index.js';
+import { Instance, findFreePorts, MANTRA_DEFAULT_IMAGE, MANTRA_DEFAULT_PRECOMPILES } from '../src/index.js';
 
 /**
  * Boots mantra from the official MANTRA image — the default runtime. Verifies
@@ -57,5 +57,12 @@ describe('mantra (container runtime)', () => {
     const client = createPublicClient({ transport: http(instance.evmUrl) });
     expect(await client.getChainId()).toBe(5888);
     expect(await client.getBlockNumber()).toBeGreaterThan(0n);
+  });
+
+  it('activates the mainnet precompile set (a fresh init leaves it empty)', async () => {
+    const res = await fetch(`${instance.apiUrl}/cosmos/evm/vm/v1/params`);
+    expect(res.ok).toBe(true);
+    const data = (await res.json()) as { params: { active_static_precompiles: string[] } };
+    expect(data.params.active_static_precompiles).toEqual([...MANTRA_DEFAULT_PRECOMPILES]);
   });
 });
