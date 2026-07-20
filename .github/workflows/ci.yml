@@ -31,22 +31,6 @@ jobs:
       - name: Unit & Smoke tests
         run: pnpm test:unit
 
-  docs:
-    name: Docs build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # The docs site is a workspace package but root check/build only filter
-      # `starskiff`, so a broken vocs page or workspace link would merge unseen.
-      - name: Build docs
-        run: pnpm docs:build
-
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest

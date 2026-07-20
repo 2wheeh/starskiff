@@ -1,8 +1,20 @@
+import { ScriptTarget } from 'typescript';
 import { defineConfig } from 'vocs/config';
 
 import pkg from 'starskiff/package.json' with { type: 'json' };
 
 export default defineConfig({
+  // Pin the twoslash target below ESNext: @typescript/vfs 1.6.4's known-lib
+  // list for ESNext includes lib.es2025.* names that typescript 5.9 doesn't
+  // ship, so the default target makes every twoslash block fail with
+  // "TSVFS: … lib.es2025.iterator.d.ts … not found in the file map".
+  twoslash: {
+    twoslashOptions: {
+      compilerOptions: {
+        target: ScriptTarget.ES2024,
+      },
+    },
+  },
   title: 'starskiff',
   description:
     'Real Cosmos SDK nodes as ephemeral test instances — from a binary or an official chain image, no Kubernetes.',

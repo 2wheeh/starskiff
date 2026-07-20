@@ -9,6 +9,22 @@ import { resolveInstanceImage } from '../docker.js'
  */
 export const MANTRA_DEFAULT_IMAGE = 'ghcr.io/mantra-chain/mantrachain:v8.2.0'
 
+/**
+ * Default active static precompiles for mantra.
+ *
+ * Mirrors MANTRA mainnet's live `evm.params.active_static_precompiles`
+ * (queried from `mantra-1`), sorted ascending as required by cosmos-evm
+ * genesis validation. A fresh `mantrachaind init` leaves the set EMPTY, so
+ * without this none of the precompiles are callable locally.
+ */
+export const MANTRA_DEFAULT_PRECOMPILES: readonly string[] = [
+  '0x0000000000000000000000000000000000000800', // Staking
+  '0x0000000000000000000000000000000000000801', // Distribution
+  '0x0000000000000000000000000000000000000802', // ICS20
+  '0x0000000000000000000000000000000000000805', // Gov
+  '0x0000000000000000000000000000000000000a01', // MANTRA app-side precompile
+]
+
 export type MantraParameters = CosmosEvmChainParameters & {
   /**
    * Run from a local `mantrachaind` binary on `PATH` instead of the image.
@@ -62,9 +78,16 @@ export const mantra = Instance.define((parameters?: MantraParameters) => {
 
   const image = resolveInstanceImage('mantra', params, MANTRA_DEFAULT_IMAGE)
 
+  // Preserve the three-state semantics of `activeStaticPrecompiles`:
+  // omitted → mantra mainnet set; explicit `undefined` → pass through (binary
+  // default, which is empty); `[]` → disable all; `[...]` → overwrite.
+  const activeStaticPrecompiles =
+    'activeStaticPrecompiles' in params ? params.activeStaticPrecompiles : MANTRA_DEFAULT_PRECOMPILES
+
   return cosmosEvmBase({
     binary, name: 'mantra', chainId, denom, prefix, validatorBalance, validatorStake, ...rest,
     image,
+    activeStaticPrecompiles,
     // app.toml's compiled-in default is cosmos/evm's 262144; mirror mainnet.
     extraStartArgs: ['--evm.evm-chain-id', String(evmChainId)],
     patchGenesis: (genesis) => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPublicClient, http } from 'viem';
-import { Instance, findFreePorts, XRPLEVM_DEFAULT_IMAGE } from '../src/index.js';
+import { Instance, findFreePorts, XRPLEVM_DEFAULT_IMAGE, XRPLEVM_DEFAULT_PRECOMPILES } from '../src/index.js';
 
 /**
  * Boots xrplevm from the official Peersyst image — the default runtime.
@@ -60,5 +60,12 @@ describe('xrplevm (container runtime)', () => {
     const client = createPublicClient({ transport: http(instance.evmUrl) });
     expect(await client.getChainId()).toBe(1440000);
     expect(await client.getBlockNumber()).toBeGreaterThan(0n);
+  });
+
+  it('activates the mainnet precompile set (a fresh init leaves it empty)', async () => {
+    const res = await fetch(`${instance.apiUrl}/cosmos/evm/vm/v1/params`);
+    expect(res.ok).toBe(true);
+    const data = (await res.json()) as { params: { active_static_precompiles: string[] } };
+    expect(data.params.active_static_precompiles).toEqual([...XRPLEVM_DEFAULT_PRECOMPILES]);
   });
 });

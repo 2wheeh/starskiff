@@ -13,6 +13,21 @@ import { resolveInstanceImage } from '../docker.js'
  */
 export const XRPLEVM_DEFAULT_IMAGE = 'peersyst/exrp:v10.0.2'
 
+/**
+ * Default active static precompiles for xrplevm.
+ *
+ * Mirrors XRPL EVM mainnet's live `evm.params.active_static_precompiles`
+ * (queried from `xrplevm_1440000-1`), sorted ascending as required by
+ * cosmos-evm genesis validation. A fresh `exrpd init` leaves the set EMPTY,
+ * so without this none of the precompiles are callable locally.
+ */
+export const XRPLEVM_DEFAULT_PRECOMPILES: readonly string[] = [
+  '0x0000000000000000000000000000000000000100', // P256
+  '0x0000000000000000000000000000000000000400', // Bech32
+  '0x0000000000000000000000000000000000000804', // Bank
+  '0x0000000000000000000000000000000000000805', // Gov
+]
+
 export type XrplevmParameters = CosmosEvmChainParameters & {
   /**
    * Run from a local `exrpd` binary on `PATH` instead of the image.
@@ -68,9 +83,16 @@ export const xrplevm = Instance.define((parameters?: XrplevmParameters) => {
   // compiled-in default is 9999. Mirror mainnet's 1440000 explicitly.
   const evmChainId = Number((chainId.match(/_(\d+)-/) ?? [])[1] ?? 1440000)
 
+  // Preserve the three-state semantics of `activeStaticPrecompiles`:
+  // omitted → xrplevm mainnet set; explicit `undefined` → pass through (binary
+  // default, which is empty); `[]` → disable all; `[...]` → overwrite.
+  const activeStaticPrecompiles =
+    'activeStaticPrecompiles' in params ? params.activeStaticPrecompiles : XRPLEVM_DEFAULT_PRECOMPILES
+
   return cosmosEvmBase({
     binary, name: 'xrplevm', chainId, denom, prefix, validatorBalance, validatorStake, ...rest,
     image,
+    activeStaticPrecompiles,
     extraStartArgs: ['--evm.evm-chain-id', String(evmChainId)],
     // exrpd's newApp reads the genesis through CometBFT's GenesisDoc parser,
     // which requires int64 fields to be STRING-encoded — but the SDK writes
