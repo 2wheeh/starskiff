@@ -107,17 +107,6 @@ export type CosmosChainParameters = {
    * child process — there's no orchestrator here.
    */
   image?: string
-  /**
-   * Pull behavior when `image` isn't present locally. Only meaningful with
-   * `image`.
-   *
-   * - `'missing'` (default): pull the image if it's absent locally.
-   * - `'never'`: fail fast with an actionable error if it's absent locally,
-   *   instead of paying a doomed registry round-trip — for images that are
-   *   never published (e.g. a locally-built `myimage:local`).
-   * @default 'missing'
-   */
-  pull?: 'missing' | 'never'
 }
 
 /** A Cosmos chain instance with chain-specific config exposed. */
@@ -234,7 +223,6 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
     extraReadinessCheck,
     relayerHints,
     image,
-    pull,
   } = parameters
 
   const process = createProcess(name)
@@ -292,7 +280,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
       try {
         if (image) {
           await assertDockerAvailable(image)
-          await ensureImage(image, { pull, onMessage: (message) => emitter.emit('message', message) })
+          await ensureImage(image, (message) => emitter.emit('message', message))
         }
 
         // Both runtimes execute the same chain CLI against the same home dir —

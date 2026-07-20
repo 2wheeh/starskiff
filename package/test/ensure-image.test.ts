@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // `x` calls are recorded here so assertions can check exactly which docker
-// subcommands ran (in particular: that `docker pull` is never invoked when
-// it shouldn't be — that's the whole point of `pull: 'never'`).
+// subcommands ran.
 const { calls, mockState } = vi.hoisted(() => ({
   calls: [] as { command: string; args: string[] }[],
   mockState: { imagePresent: true, pullExitCode: 0, pullStderr: '' },
@@ -30,31 +29,20 @@ beforeEach(() => {
   mockState.pullStderr = ''
 })
 
-describe('ensureImage (pull policy)', () => {
-  it('returns without pulling when the image is already present locally, regardless of pull mode', async () => {
+describe('ensureImage', () => {
+  it('returns without pulling when the image is already present locally', async () => {
     mockState.imagePresent = true
 
-    await ensureImage('my/img:1', { pull: 'never' })
-    expect(calls.some((c) => c.args[0] === 'pull')).toBe(false)
+    await ensureImage('my/img:1')
 
-    calls.length = 0
-    await ensureImage('my/img:1', { pull: 'missing' })
     expect(calls.some((c) => c.args[0] === 'pull')).toBe(false)
   })
 
-  it('throws an actionable error and never invokes docker pull when absent and pull is "never"', async () => {
-    mockState.imagePresent = false
-
-    await expect(ensureImage('my/img:1', { pull: 'never' })).rejects.toThrow(/pull is disabled/)
-    // The core promise: no registry round-trip.
-    expect(calls.some((c) => c.args[0] === 'pull')).toBe(false)
-  })
-
-  it('invokes docker pull and emits a message when absent and pull is "missing" (default)', async () => {
+  it('invokes docker pull and emits a message when the image is absent', async () => {
     mockState.imagePresent = false
     const messages: string[] = []
 
-    await ensureImage('my/img:1', { onMessage: (message) => messages.push(message) })
+    await ensureImage('my/img:1', (message) => messages.push(message))
 
     expect(calls).toContainEqual({ command: 'docker', args: ['pull', 'my/img:1'] })
     expect(messages.some((message) => message.includes('pulling my/img:1'))).toBe(true)
