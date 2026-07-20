@@ -5,6 +5,7 @@ import path from 'node:path'
 import { x } from 'tinyexec'
 import * as Instance from './Instance.js'
 import { createProcess } from './process.js'
+import { sortCoins } from './utils.js'
 import {
   assertDockerAvailable,
   CONTAINER_HOME,
@@ -17,7 +18,10 @@ import {
 export type CosmosAccount = {
   /** BIP39 mnemonic for key derivation. */
   mnemonic: string
-  /** Coins to fund (e.g. "1000000000stake"). */
+  /**
+   * Coins to fund (e.g. "1000000000stake"). Multi-coin strings are allowed;
+   * denoms are sorted for you (the SDK requires ascending order).
+   */
   coins: string
   /** Account name for keyring. @default "test-{index}" */
   name?: string
@@ -336,7 +340,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
 
           await run([
             'genesis', 'add-genesis-account', keyName,
-            account.coins, '--keyring-backend', 'test',
+            sortCoins(account.coins), '--keyring-backend', 'test',
           ])
         }
 
