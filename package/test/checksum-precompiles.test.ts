@@ -4,12 +4,9 @@ import { normalizeActiveStaticPrecompiles } from '../src/cosmos.js';
 import { MAROO_DEFAULT_PRECOMPILES } from '../src/index.js';
 
 /**
- * cosmos-evm's precompile activation check compares stored genesis strings
- * case-sensitively against the EIP-55 checksum form, so an all-lowercase
- * `active_static_precompiles` list silently disables any precompile whose
- * checksum address contains a hex letter. These tests pin the fix: stored
- * values are checksummed (not lowercased), and the stored array stays sorted
- * per Go's `slices.IsSorted` requirement.
+ * Pins the P0 fix: stored `active_static_precompiles` are EIP-55 checksummed
+ * (lowercasing silently disabled maroo's agent precompile) and stay sorted
+ * per Go's `slices.IsSorted`. See normalizeActiveStaticPrecompiles.
  */
 describe('toChecksumAddress', () => {
   it('matches EIP-55 spec vectors', () => {
@@ -30,8 +27,6 @@ describe('toChecksumAddress', () => {
   });
 
   it('preserves the maroo agent precompile address casing (…000a → …000A)', () => {
-    // The one maroo precompile whose checksum form contains a hex letter —
-    // this is exactly the address the old `.toLowerCase()` behavior broke.
     expect(toChecksumAddress('0x100000000000000000000000000000000000000a')).toBe(
       '0x100000000000000000000000000000000000000A',
     );
@@ -75,7 +70,6 @@ describe('normalizeActiveStaticPrecompiles', () => {
   it('the maroo default precompile set stays casing-correct and Go-sorted after normalization', () => {
     const result = normalizeActiveStaticPrecompiles(MAROO_DEFAULT_PRECOMPILES);
 
-    // Casing preserved (checksummed, not lowercased) — this is the P0 regression guard.
     expect(result).toContain('0x100000000000000000000000000000000000000A');
     expect(result).not.toContain('0x100000000000000000000000000000000000000a');
 
@@ -84,12 +78,8 @@ describe('normalizeActiveStaticPrecompiles', () => {
   });
 
   it('sorts by the checksummed (stored) string, not a lowercase-keyed order', () => {
-    // Two addresses that differ only at the first hex digit: 'a' vs 'f'. Their
-    // own keccak-256 hashes happen to leave the 'a' digit lowercase but
-    // uppercase the 'f' digit to 'F' — so lowercase order (a < f) and
-    // checksummed order (uppercase 'F' sorts before lowercase 'a' in ASCII)
-    // disagree. This is exactly the case a naive `.sort()` on lowercased keys
-    // would get wrong.
+    // Checksumming leaves 'a111…' lowercase but flips 'f111…' to 'F111…', so
+    // lowercase order (a < f) and stored order ('F' < 'a' in ASCII) disagree.
     const addrA = '0xa111111111111111111111111111111111111111';
     const addrF = '0xf111111111111111111111111111111111111111';
 
@@ -98,16 +88,13 @@ describe('normalizeActiveStaticPrecompiles', () => {
     expect(checksummedA).toBe('0xa111111111111111111111111111111111111111');
     expect(checksummedF).toBe('0xF111111111111111111111111111111111111111');
 
-    // Fed in lowercase order (a before f) — the correct output reverses them,
-    // because the *stored* (checksummed) string order is what Go validates.
     const result = normalizeActiveStaticPrecompiles([addrA, addrF]);
     expect(result).toEqual([
       '0xF111111111111111111111111111111111111111',
       '0xa111111111111111111111111111111111111111',
     ]);
 
-    // Prove the point: a lowercase-keyed sort would have kept them in the
-    // other order, which fails plain ascending (Go's `slices.IsSorted`) check.
+    // A lowercase-keyed sort would keep [a, F] — failing Go's `slices.IsSorted`.
     const lowercaseKeyedOrder = [checksummedA, checksummedF];
     expect(lowercaseKeyedOrder.every((v, i) => i === 0 || lowercaseKeyedOrder[i - 1] <= v)).toBe(false);
   });

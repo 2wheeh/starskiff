@@ -640,22 +640,12 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
 
 /**
  * Normalizes an `active_static_precompiles` list to the form cosmos-evm
- * genesis validation requires.
- *
- * cosmos-evm's precompile activation check compares the stored strings
- * case-sensitively against the EIP-55 checksum form (`address.String()` in
- * the Go static-precompiles keeper) — it does NOT normalize casing. So the
- * stored values must themselves be checksummed, not lowercased (lowercasing
- * silently disables any precompile whose checksum address contains a hex
- * letter).
- *
- * Genesis validation separately requires the stored list to be
- * `slices.IsSorted` on those exact strings, which is plain ascending string
- * order — hence a plain `.sort()` on the checksummed values (not a
- * lowercase-keyed sort, which could produce an array that fails Go's
- * sortedness check).
- *
- * Exported for unit testing; used internally by {@link cosmosEvmBase}.
+ * genesis validation requires: EIP-55 checksummed — the chain's activation
+ * check compares the stored strings case-sensitively against
+ * `address.String()`, so lowercasing silently disables any precompile whose
+ * address contains a hex letter — and plain-sorted, since validation runs
+ * `slices.IsSorted` on those exact strings (a lowercase-keyed sort could
+ * fail it). Exported for unit testing; not part of the package root.
  */
 export function normalizeActiveStaticPrecompiles(precompiles: readonly string[]): string[] {
   return precompiles.map((a) => toChecksumAddress(a)).sort()

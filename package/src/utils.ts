@@ -13,15 +13,10 @@ export function stripColors(message: string) {
 const addressPattern = /^(0x|0X)?[0-9a-fA-F]{40}$/
 
 /**
- * EIP-55 checksum-cases a hex address: keccak-256 the lowercase hex digits
- * (no `0x`, ASCII), then uppercase each hex letter whose corresponding
- * checksum nibble is >= 8. Idempotent — checksumming an already-checksummed
- * address returns it unchanged. Digit-only addresses are unaffected, since
- * EIP-55 only cases `a-f` letters.
- *
- * Requires exactly 40 hex digits (an optional `0x`/`0X` prefix is stripped
- * first) — anything shorter, longer, or non-hex throws rather than silently
- * "checksumming" garbage.
+ * EIP-55 checksum-cases a hex address: keccak-256 the lowercase ascii hex
+ * digits (no `0x`), uppercase each letter whose checksum nibble is >= 8.
+ * Idempotent. Requires exactly 40 hex digits (optional `0x`/`0X` prefix) —
+ * anything else throws rather than silently "checksumming" garbage.
  */
 export function toChecksumAddress(address: string): string {
   if (!addressPattern.test(address)) {
