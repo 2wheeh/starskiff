@@ -5,6 +5,7 @@ import path from 'node:path'
 import { x } from 'tinyexec'
 import * as Instance from './Instance.js'
 import { createProcess } from './process.js'
+import { sortCoins, toChecksumAddress } from './utils.js'
 import {
   assertDockerAvailable,
   CONTAINER_HOME,
@@ -17,7 +18,10 @@ import {
 export type CosmosAccount = {
   /** BIP39 mnemonic for key derivation. */
   mnemonic: string
-  /** Coins to fund (e.g. "1000000000stake"). */
+  /**
+   * Coins to fund (e.g. "1000000000stake"). Multi-coin strings are allowed;
+   * denoms are sorted for you (the SDK requires ascending order).
+   */
   coins: string
   /** Account name for keyring. @default "test-{index}" */
   name?: string
@@ -336,7 +340,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
 
           await run([
             'genesis', 'add-genesis-account', keyName,
-            account.coins, '--keyring-backend', 'test',
+            sortCoins(account.coins), '--keyring-backend', 'test',
           ])
         }
 
@@ -635,6 +639,19 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
 }
 
 /**
+ * Normalizes an `active_static_precompiles` list to the form cosmos-evm
+ * genesis validation requires: EIP-55 checksummed — the chain's activation
+ * check compares the stored strings case-sensitively against
+ * `address.String()`, so lowercasing silently disables any precompile whose
+ * address contains a hex letter — and plain-sorted, since validation runs
+ * `slices.IsSorted` on those exact strings (a lowercase-keyed sort could
+ * fail it). Exported for unit testing; not part of the package root.
+ */
+export function normalizeActiveStaticPrecompiles(precompiles: readonly string[]): string[] {
+  return precompiles.map((a) => toChecksumAddress(a)).sort()
+}
+
+/**
  * Shared setup for EVM-enabled Cosmos SDK chains (e.g. xpla, evmos).
  *
  * Extends cosmosBase with JSON-RPC (EVM) port configuration in app.toml.
@@ -665,12 +682,7 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
           | { params: { active_static_precompiles?: readonly string[] } }
           | undefined
         if (evm?.params) {
-          // cosmos-evm genesis validation requires the list to be sorted by
-          // bytes20 order. Normalize to lowercase + ascending sort so callers
-          // don't have to think about it.
-          evm.params.active_static_precompiles = activeStaticPrecompiles
-            .map((a) => a.toLowerCase())
-            .sort()
+          evm.params.active_static_precompiles = normalizeActiveStaticPrecompiles(activeStaticPrecompiles)
         }
       }
       return userPatch ? userPatch(genesis) : genesis

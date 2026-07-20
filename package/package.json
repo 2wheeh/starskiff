@@ -44,6 +44,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@noble/hashes": "^2.2.0",
     "mitt": "^3.0.1",
     "tinyexec": "^1.0.4"
   },

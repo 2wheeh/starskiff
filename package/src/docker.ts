@@ -184,13 +184,27 @@ export async function assertDockerAvailable(image: string): Promise<void> {
  * `docker run` would pull implicitly, but a cold pull of a few hundred MB can
  * outlast the instance start timeout and would be invisible in the logs — so
  * pull up front, before the clock on `start()` matters.
+ *
+ * A failed pull throws an actionable error rather than a raw exit code:
+ * absent locally AND in the registry is the normal shape for locally-built,
+ * never-published images (e.g. marood's `maroo:local`), so name that case.
  */
 export async function ensureImage(image: string, onMessage?: (message: string) => void): Promise<void> {
   const present = await x('docker', ['image', 'inspect', image], { nodeOptions: { stdio: 'pipe' } })
   if (present.exitCode === 0) return
 
   onMessage?.(`[starskiff] pulling ${image} (first run)\n`)
-  await x('docker', ['pull', image], { throwOnError: true, nodeOptions: { stdio: 'pipe' } })
+  const pulled = await x('docker', ['pull', image], { nodeOptions: { stdio: 'pipe' } })
+  if (pulled.exitCode === 0) return
+
+  // Last few lines only — enough to tell auth failures from not-found.
+  const stderrTail = pulled.stderr.trim().split('\n').slice(-5).join('\n')
+  throw new Error(
+    `"${image}" is not present locally and the registry pull failed. ` +
+    'If this is a locally-built image (e.g. a private node image), build or ' +
+    '`docker load` it on this machine first; otherwise check the image ' +
+    `reference and registry access.\n${stderrTail}`,
+  )
 }
 
 /**
