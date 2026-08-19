@@ -2,12 +2,14 @@ import {
   Instance,
   cosmosBase,
   cosmosEvmBase,
+  defineConfig,
   type BinaryInstanceSource,
   type CosmosBaseParameters,
   type CosmosChainParameters,
   type CosmosEvmBaseParameters,
   type CosmosEvmChainParameters,
   type CosmosRuntimeOptions,
+  type DefinedStarskiffConfig,
   type ImageInstanceSource,
   type InstanceSource,
   type MaroodParameters,
@@ -183,3 +185,57 @@ const requiredFactory = Instance.define((parameters: { port: number }) => ({
 }))
 // @ts-expect-error Required definition parameters cannot be omitted.
 requiredFactory()
+
+// Declarative configs preserve factory parameter requirements and use their
+// chain-name keys as the Hermes channel vocabulary.
+const declarativeConfig = defineConfig({
+  chains: {
+    wasm: {
+      factory: Instance.wasmd,
+      parameters: { chainId: 'wasm-test-1' },
+      options: { timeout: 120_000 },
+    },
+    maroo: {
+      factory: Instance.marood,
+      parameters: { image: 'registry/marood:v1', network: 'testnet' },
+    },
+  },
+  relayers: {
+    hermes: {
+      mnemonic: 'test mnemonic',
+      channels: [['wasm', 'maroo']],
+    },
+  },
+})
+const publicDefinedConfig: DefinedStarskiffConfig = declarativeConfig
+void publicDefinedConfig
+expectTypeOf(declarativeConfig.relayers[0].channels[0]).toEqualTypeOf<
+  readonly ['wasm' | 'maroo', 'wasm' | 'maroo']
+>()
+
+defineConfig({ chains: { wasm: { factory: Instance.wasmd } } })
+
+const configuredWasm = declarativeConfig.chains.find((chain) => chain.name === 'wasm')!
+expectTypeOf(configuredWasm.factory).toEqualTypeOf<typeof Instance.wasmd>()
+expectTypeOf(configuredWasm.options).toEqualTypeOf<Readonly<Instance.InstanceOptions>>()
+
+defineConfig({
+  chains: {
+    // @ts-expect-error marood's required source parameters remain required in config.
+    maroo: { factory: Instance.marood },
+  },
+})
+
+defineConfig({
+  chains: {
+    a: { factory: Instance.wasmd },
+    b: { factory: Instance.simd },
+  },
+  relayers: {
+    hermes: {
+      mnemonic: 'test mnemonic',
+      // @ts-expect-error Channels can only reference names in the chain record.
+      channels: [['a', 'missing']],
+    },
+  },
+})

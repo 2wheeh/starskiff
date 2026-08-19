@@ -1,0 +1,50 @@
+# Declarative Config [Describe chains and IBC links in starskiff.config.ts]
+
+Use `defineConfig()` to keep a test topology in one typed `starskiff.config.ts` file. Chain keys become the names used by relayer channel pairs, so misspelled references fail during type checking.
+
+```ts twoslash
+import { defineConfig, Instance, testAccounts } from 'starskiff';
+
+const relayer = testAccounts[1];
+
+export default defineConfig({
+  chains: {
+    gaia: {
+      factory: Instance.gaiad,
+      parameters: {
+        chainId: 'gaia-test-1',
+        accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000uatom', name: 'relayer' }],
+      },
+    },
+    wasm: {
+      factory: Instance.wasmd,
+      parameters: {
+        chainId: 'wasm-test-1',
+        accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000stake', name: 'relayer' }],
+      },
+      options: { timeout: 120_000 },
+    },
+  },
+  relayers: {
+    hermes: {
+      mnemonic: relayer.mnemonic,
+      channels: [['gaia', 'wasm']],
+    },
+  },
+});
+```
+
+`parameters` and `options` are checked against the selected instance factory. They follow the same contract as a direct call: `Instance.wasmd` can omit `parameters`, while `Instance.marood` must include its required `image` or `binary` source.
+
+## What defineConfig does
+
+`defineConfig()` validates the topology and returns a consistent shape:
+
+- `chains` is an array of `{ name, factory, parameters, options }` entries.
+- `relayers` is always an array, even when no relayer was declared.
+- Hermes channel pairs must contain two configured chain names. Repeated pairs are preserved for setups that intentionally create multiple channels.
+- The selected `Instance` factories and lifecycle options are preserved for a runner to consume.
+
+It deliberately does not discover the file, allocate ports, or start and stop instances. Import the config directly when building custom setup today. Automatic Vitest and Playwright lifecycle adapters are separate roadmap items.
+
+The normalized output has the public `DefinedStarskiffConfig` type, so runner code can depend on the contract without spelling `ReturnType<typeof defineConfig>`.

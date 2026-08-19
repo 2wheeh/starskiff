@@ -33,7 +33,7 @@
 
 ## Test integrations
 
-- [ ] Add `starskiff.config.ts` for declarative chain and relayer setup
+- [x] Add `starskiff.config.ts` for declarative chain and relayer setup
 - [ ] Add `starskiff/vitest` for automatic suite setup and teardown
 - [ ] Add `starskiff/playwright` for automatic worker-scoped instances
 - [ ] Add a `starskiff/setup-binaries` GitHub Action for host-binary provisioning

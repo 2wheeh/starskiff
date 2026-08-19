@@ -154,6 +154,42 @@ const { contractAddress } = await client.instantiate(address, codeId, initMsg, '
 const result = await client.execute(address, contractAddress, executeMsg, 'auto');
 ```
 
+### Declarative config
+
+For a reusable multi-chain topology, describe the factories, their parameters,
+and Hermes links in `starskiff.config.ts`:
+
+```ts
+import { defineConfig, Instance, testAccounts } from 'starskiff';
+
+const relayer = testAccounts[1];
+
+export default defineConfig({
+  chains: {
+    gaia: {
+      factory: Instance.gaiad,
+      parameters: {
+        accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000uatom' }],
+      },
+    },
+    wasm: {
+      factory: Instance.wasmd,
+      parameters: {
+        accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000stake' }],
+      },
+    },
+  },
+  relayers: {
+    hermes: { mnemonic: relayer.mnemonic, channels: [['gaia', 'wasm']] },
+  },
+});
+```
+
+`defineConfig()` validates references and normalizes the declaration; it does
+not discover the file or start instances. Automatic Vitest and Playwright
+lifecycle adapters remain separate roadmap items. See the
+[declarative config guide](./../docs/src/pages/docs/guides/config.mdx).
+
 ### vitest globalSetup (provide/inject)
 
 ```ts
