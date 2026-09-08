@@ -86,7 +86,7 @@ export type CosmosChainParameters = {
   apiPort?: number
   /** P2P listen port. @default 26656 */
   p2pPort?: number
-  /** gRPC-Web listen port. @default 9091 */
+  /** Legacy gRPC-Web listen port. Newer SDKs share apiPort. @default 9091 */
   grpcWebPort?: number
   /** pprof listen port. @default 6060 */
   pprofPort?: number
@@ -451,10 +451,12 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           'api.enable': 'true',
           'api.address': `tcp://0.0.0.0:${apiPort}`,
           'grpc.address': `0.0.0.0:${grpcPort}`,
-          'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
           'minimum-gas-prices': minimumGasPrices ?? `0${denom}`,
           ...extraAppToml,
-        }, binary)
+        }, binary, {
+          // Newer SDKs serve gRPC-Web on api.address; older ones have a separate listener.
+          'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
+        })
 
         // 6. Start and wait for first block.
         // The container runs attached, so `docker run` forwards the node's
@@ -578,8 +580,14 @@ function patchDenom(genesis: Genesis, denom: string): Genesis {
   return genesis
 }
 
-/** Simple TOML patcher for `[section]\nkey = "value"` patterns. */
-function patchToml(filePath: string, patches: Record<string, string>, binary: string): void {
+/** Internal config patcher. Optional defaults apply only when the key exists. */
+export function patchToml(
+  filePath: string,
+  patches: Record<string, string>,
+  binary: string,
+  optionalDefaults: Record<string, string> = {},
+): void {
+  const effectivePatches = { ...optionalDefaults, ...patches }
   let currentSection = ''
   const lines = fs.readFileSync(filePath, 'utf-8').split('\n')
   const result: string[] = []
@@ -592,7 +600,7 @@ function patchToml(filePath: string, patches: Record<string, string>, binary: st
     }
 
     let patched = false
-    for (const [patchKey, patchValue] of Object.entries(patches)) {
+    for (const [patchKey, patchValue] of Object.entries(effectivePatches)) {
       const dotIdx = patchKey.indexOf('.')
       const section = dotIdx >= 0 ? patchKey.slice(0, dotIdx) : ''
       const key = dotIdx >= 0 ? patchKey.slice(dotIdx + 1) : patchKey

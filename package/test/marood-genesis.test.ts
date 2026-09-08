@@ -132,3 +132,54 @@ describe('patchMaroodGenesis', () => {
     expect((result.app_state as any).pcl.params.entrypoints).toEqual(custom);
   });
 });
+
+// v0.8 stores Privacy ownership in PCL contract_policies, independently of params.
+describe('maroo v0.8 Privacy policy ownership', () => {
+  const privacyAddress = 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt575gw7';
+  const policyAdmin = 'maroo1cml96vmptgw99syqrrz8az79xer2pcgp9vckp5';
+
+  function privacyGenesis() {
+    const genesis = fixtureGenesis();
+    (genesis.app_state as any).pcl.contract_policies = [
+      { config: { contract: privacyAddress, admin: 'release-admin' }, policies: [{ selector: '__all__', marker: 'preserve-baseline' }] },
+      { config: { contract: MAROO_EAS_CONTRACT, admin: 'other-admin' }, policies: [] },
+    ];
+    return genesis;
+  }
+
+  it('changes only the Privacy admin while preserving the complete policy payload', () => {
+    const genesis = privacyGenesis();
+    const expected = structuredClone((genesis.app_state as any).pcl.contract_policies);
+    expected[0].config.admin = policyAdmin;
+    const result = patchMaroodGenesis(genesis, {
+      preset: MAROO_NETWORKS.testnet, preinstalls: [], policyAdmin,
+    });
+    expect((result.app_state as any).pcl.params.policy_admin).toBe(policyAdmin);
+    expect((result.app_state as any).pcl.contract_policies).toEqual(expected);
+  });
+
+  it('preserves release ownership when policyAdmin is omitted', () => {
+    const genesis = privacyGenesis();
+    const expected = structuredClone((genesis.app_state as any).pcl.contract_policies);
+    patchMaroodGenesis(genesis, { preset: MAROO_NETWORKS.testnet, preinstalls: [] });
+    expect((genesis.app_state as any).pcl.contract_policies).toEqual(expected);
+  });
+
+  it('does not invent contract policies for older genesis schemas', () => {
+    const genesis = fixtureGenesis();
+    patchMaroodGenesis(genesis, { preset: MAROO_NETWORKS.testnet, preinstalls: [], policyAdmin });
+    expect((genesis.app_state as any).pcl).not.toHaveProperty('contract_policies');
+  });
+
+  it('lets the caller override Privacy ownership after synchronization', () => {
+    const result = patchMaroodGenesis(privacyGenesis(), {
+      preset: MAROO_NETWORKS.testnet, preinstalls: [], policyAdmin,
+      patchGenesis: (genesis) => {
+        expect((genesis.app_state as any).pcl.contract_policies[0].config.admin).toBe(policyAdmin);
+        (genesis.app_state as any).pcl.contract_policies[0].config.admin = 'custom-admin';
+        return genesis;
+      },
+    });
+    expect((result.app_state as any).pcl.contract_policies[0].config.admin).toBe('custom-admin');
+  });
+});
