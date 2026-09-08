@@ -1,5 +1,13 @@
 # starskiff
 
+## 0.7.1
+
+### Patch Changes
+
+- [#34](https://github.com/2wheeh/starskiff/pull/34) [`90d5e96`](https://github.com/2wheeh/starskiff/commit/90d5e96859924ade70e423f85a18cde5e6a80ee1) Thanks [@2wheeh](https://github.com/2wheeh)! - Fixed spurious `grpc-web.address` warnings on SDKs that share the API listener. Legacy listeners and warnings for missing explicit overrides remain supported.
+
+- [#34](https://github.com/2wheeh/starskiff/pull/34) [`90d5e96`](https://github.com/2wheeh/starskiff/commit/90d5e96859924ade70e423f85a18cde5e6a80ee1) Thanks [@2wheeh](https://github.com/2wheeh)! - Fixed `Instance.marood({ policyAdmin })` leaving the Privacy contract-policy admin unchanged in maroo v0.8.0 genesis, while preserving existing policies.
+
 ## 0.7.0
 
 ### Minor Changes
