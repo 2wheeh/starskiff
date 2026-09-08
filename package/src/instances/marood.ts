@@ -145,7 +145,8 @@ export type MaroodParameters = Omit<CosmosEvmChainParameters, 'image'> & Instanc
   preinstalls?: readonly EvmPreinstall[]
   /**
    * Bech32 address for `pcl.params.policy_admin`, which gates the PCL
-   * precompile's admin methods. No default — omitted, they stay unusable.
+   * precompile's admin methods. Also updates the existing Privacy contract-policy
+   * admin in maroo v0.8 genesis, preserving its policies. Omit to retain genesis admins.
    */
   policyAdmin?: string
   /**
@@ -319,11 +320,24 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
   }
 
   const pcl = (genesis.app_state as Record<string, unknown>).pcl as
-    | { params?: { policy_admin?: string; entrypoints?: string[] } }
+    | {
+        params?: { policy_admin?: string; entrypoints?: string[] }
+        contract_policies?: { config: { contract: string; admin: string } }[]
+      }
     | undefined
   if (pcl?.params) {
     if (policyAdmin) pcl.params.policy_admin = policyAdmin
     pcl.params.entrypoints = [...(entrypoints ?? MAROO_DEFAULT_PCL_ENTRYPOINTS)]
+  }
+
+  if (policyAdmin) {
+    // v0.8 seeds this separately from the PCL module admin. Keep its mandatory
+    // EAS/denylist baseline and all unrelated contract policies intact.
+    for (const policy of pcl?.contract_policies ?? []) {
+      if (policy.config.contract === 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt575gw7') {
+        policy.config.admin = policyAdmin
+      }
+    }
   }
 
   const eas = (genesis.app_state as Record<string, unknown>).eas as
