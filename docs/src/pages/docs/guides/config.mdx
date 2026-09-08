@@ -13,6 +13,7 @@ export default defineConfig({
       factory: Instance.gaiad,
       parameters: {
         chainId: 'gaia-test-1',
+        denom: 'uatom',
         accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000uatom', name: 'relayer' }],
       },
     },

@@ -8,14 +8,17 @@ type ChainInstanceFactory = (...args: any[]) => CosmosInstance
 type FactoryParameters<F extends ChainInstanceFactory> = Parameters<F>[0]
 
 /** A declarative chain entry accepted by {@link defineConfig}. */
-type ChainConfig<F extends ChainInstanceFactory = ChainInstanceFactory> = {
-  /** Existing starskiff or custom Cosmos instance factory. */
-  factory: F
-  /** Lifecycle options passed as the factory's second argument. */
-  options?: InstanceOptions
-} & (undefined extends FactoryParameters<F>
-  ? { /** Parameters passed to the instance factory. */ parameters?: FactoryParameters<F> }
-  : { /** Parameters passed to the instance factory. */ parameters: FactoryParameters<F> })
+type ChainConfig<F extends ChainInstanceFactory = ChainInstanceFactory> =
+  F extends ChainInstanceFactory
+    ? {
+        /** Existing starskiff or custom Cosmos instance factory. */
+        factory: F
+        /** Lifecycle options passed as the factory's second argument. */
+        options?: InstanceOptions
+      } & (undefined extends FactoryParameters<F>
+        ? { /** Parameters passed to the instance factory. */ parameters?: FactoryParameters<F> }
+        : { /** Parameters passed to the instance factory. */ parameters: FactoryParameters<F> })
+    : never
 
 type ChainFactories = Record<string, ChainInstanceFactory>
 

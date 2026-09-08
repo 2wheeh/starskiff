@@ -169,12 +169,15 @@ export default defineConfig({
     gaia: {
       factory: Instance.gaiad,
       parameters: {
+        chainId: 'gaia-test-1',
+        denom: 'uatom',
         accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000uatom' }],
       },
     },
     wasm: {
       factory: Instance.wasmd,
       parameters: {
+        chainId: 'wasm-test-1',
         accounts: [{ mnemonic: relayer.mnemonic, coins: '1000000000stake' }],
       },
     },

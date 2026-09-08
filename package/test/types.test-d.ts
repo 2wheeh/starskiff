@@ -241,3 +241,24 @@ defineConfig({
     },
   },
 })
+
+// A factory selected at runtime cannot bypass marood's required source.
+const unionFactory = Math.random() > 0.5 ? Instance.marood : Instance.wasmd
+defineConfig({
+  chains: {
+    // @ts-expect-error An unresolved union factory cannot omit required parameters.
+    selected: { factory: unionFactory },
+  },
+})
+
+defineConfig({
+  chains: {
+    // @ts-expect-error Supplying an empty object also cannot bypass the source requirement.
+    selected: { factory: unionFactory, parameters: {} },
+  },
+})
+
+const selectedDeclaration = Math.random() > 0.5
+  ? { factory: Instance.marood, parameters: { image: 'registry/marood:v1' } }
+  : { factory: Instance.wasmd }
+defineConfig({ chains: { selected: selectedDeclaration } })
