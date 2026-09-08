@@ -48,6 +48,7 @@ describe('smoke test (built output)', () => {
       expect(instance.start).toBeTypeOf('function')
       expect(instance.stop).toBeTypeOf('function')
       expect(instance.restart).toBeTypeOf('function')
+      expect(instance[Symbol.asyncDispose]).toBeTypeOf('function')
     })
 
     it('has event methods', () => {

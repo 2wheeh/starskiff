@@ -313,11 +313,19 @@ const instance = Instance.wasmd({ chainId: 'test-1' }, { timeout: 30_000 });
 
 | Method                | Description                                                            |
 | --------------------- | ---------------------------------------------------------------------- |
-| `start()`             | Start the instance. Returns a stop function.                           |
+| `start()`             | Start the instance; resolves when it is ready.                         |
 | `stop()`              | Stop the instance and cleanup temp directory.                          |
 | `restart()`           | Stop then start.                                                       |
 | `on(event, handler)`  | Listen to events (`message`, `stdout`, `stderr`, `listening`, `exit`). |
 | `off(event, handler)` | Remove event listener.                                                 |
+
+Instances also implement `Symbol.asyncDispose`, so `await using` scopes stop
+them automatically:
+
+```ts
+await using instance = Instance.wasmd();
+await instance.start();
+```
 
 ### Instance properties
 

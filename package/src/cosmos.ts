@@ -86,7 +86,7 @@ export type CosmosChainParameters = {
   apiPort?: number
   /** P2P listen port. @default 26656 */
   p2pPort?: number
-  /** gRPC-Web listen port. @default 9091 */
+  /** Legacy gRPC-Web listen port. Newer SDKs share apiPort. @default 9091 */
   grpcWebPort?: number
   /** pprof listen port. @default 6060 */
   pprofPort?: number
@@ -195,6 +195,12 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   runtime?: CosmosRuntimeOptions
 }
 
+function commandDisplay(binary: string, args: readonly string[]): string {
+  const displayArg = (arg: string) =>
+    /^[A-Za-z0-9_./:@=+-]+$/.test(arg) ? arg : JSON.stringify(arg)
+  return [binary, ...args].map(displayArg).join(' ')
+}
+
 /**
  * Shared setup for any Cosmos SDK chain binary.
  *
@@ -297,7 +303,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
 
     async start(
       { port = rpcPort }: Instance.InstanceStartOptions,
-      { emitter, signal }: Instance.InstanceStartContext,
+      { emitter, signal, setStartDiagnostics }: Instance.InstanceStartContext,
     ) {
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-'))
 
@@ -310,18 +316,23 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           runtime,
           signal,
         })
+        setStartDiagnostics({ phase: 'runtime preparation' })
         await runner.prepare((message) => emitter.emit('message', message))
 
         // Both runtimes execute the same chain CLI against the same home dir —
         // docker just runs it inside a disposable container with that dir bind
         // mounted, so every step below (and the host-side genesis/config
         // patching) is runtime-agnostic.
-        const run = (args: string[]) => runner!.run(homeDir!, args)
+        const run = (phase: string, args: string[], options?: { input?: string }) => {
+          setStartDiagnostics({ phase, command: commandDisplay(binary, args) })
+          return runner!.run(homeDir!, args, options)
+        }
 
         // 1. Init chain
-        await run(['init', 'validator', '--chain-id', chainId])
+        await run('init', ['init', 'validator', '--chain-id', chainId])
 
         // 2. Patch genesis
+        setStartDiagnostics({ phase: 'genesis patch' })
         const genesisPath = path.join(homeDir, 'config', 'genesis.json')
         let genesis: Genesis = JSON.parse(fs.readFileSync(genesisPath, 'utf-8'))
 
@@ -331,8 +342,8 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         fs.writeFileSync(genesisPath, JSON.stringify(genesis, null, 2))
 
         // 3. Validator + accounts
-        await run(['keys', 'add', 'validator', '--keyring-backend', 'test'])
-        await run([
+        await run('validator setup', ['keys', 'add', 'validator', '--keyring-backend', 'test'])
+        await run('validator setup', [
           'genesis', 'add-genesis-account', 'validator',
           `${validatorBalance}${denom}`, '--keyring-backend', 'test',
         ])
@@ -345,7 +356,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           // to stdin asynchronously so start cancellation remains effective.
           const recoverArgs = ['keys', 'add', keyName, '--recover', '--keyring-backend', 'test']
           try {
-            await runner.run(homeDir, recoverArgs, { input: `${account.mnemonic}\n` })
+            await run('account recovery', recoverArgs, { input: `${account.mnemonic}\n` })
           } catch (error) {
             throw new Error(
               `Failed to recover key "${keyName}".\n${commandErrorMessage(error)}`,
@@ -353,14 +364,14 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
             )
           }
 
-          await run([
+          await run('genesis accounts', [
             'genesis', 'add-genesis-account', keyName,
             sortCoins(account.coins), '--keyring-backend', 'test',
           ])
         }
 
         // 4. Gentx (default validator) + any extra validators, then collect.
-        await run([
+        await run('gentx', [
           'genesis', 'gentx', 'validator', `${validatorStake}${denom}`,
           '--chain-id', chainId, '--keyring-backend', 'test',
         ])
@@ -371,8 +382,8 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         const extraStake = computeExtraValidatorStake(validatorStake, extraValidators)
         for (let i = 1; i <= extraValidators; i++) {
           const valName = `validator-${i}`
-          await run(['keys', 'add', valName, '--keyring-backend', 'test'])
-          await run([
+          await run('validator setup', ['keys', 'add', valName, '--keyring-backend', 'test'])
+          await run('genesis accounts', [
             'genesis', 'add-genesis-account', valName,
             `${validatorBalance}${denom}`, '--keyring-backend', 'test',
           ])
@@ -380,18 +391,22 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
           // The throwaway home is a *different* directory, so under docker it
           // needs its own bind mount rather than the instance's.
-          const runInConsHome = (args: string[]) => runner!.run(consHome, args)
+          const runInConsHome = (phase: string, args: string[]) => {
+            setStartDiagnostics({ phase, command: commandDisplay(binary, args) })
+            return runner!.run(consHome, args)
+          }
           try {
-            await runInConsHome(['init', valName, '--chain-id', chainId])
+            await runInConsHome('validator consensus setup', ['init', valName, '--chain-id', chainId])
             // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
             // the `tendermint` alias, so fall back to it.
             let pubkey: string
             try {
-              pubkey = (await runInConsHome(['comet', 'show-validator'])).stdout
+              pubkey = (await runInConsHome('validator consensus setup', ['comet', 'show-validator'])).stdout
             } catch {
-              pubkey = (await runInConsHome(['tendermint', 'show-validator'])).stdout
+              signal.throwIfAborted()
+              pubkey = (await runInConsHome('validator consensus setup', ['tendermint', 'show-validator'])).stdout
             }
-            await run([
+            await run('gentx', [
               'genesis', 'gentx', valName, `${extraStake}${denom}`,
               '--pubkey', pubkey.trim(),
               '--moniker', valName,
@@ -414,14 +429,16 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           }
         }
 
-        await run(['genesis', 'collect-gentxs'])
+        await run('gentx collection', ['genesis', 'collect-gentxs'])
 
         if (finalizeGenesis) {
+          setStartDiagnostics({ phase: 'genesis finalization' })
           const finalized = finalizeGenesis(JSON.parse(fs.readFileSync(genesisPath, 'utf8')))
           fs.writeFileSync(genesisPath, JSON.stringify(finalized, null, 2))
         }
 
         // 5. Patch configs for port bindings
+        setStartDiagnostics({ phase: 'configuration patch' })
         patchToml(path.join(homeDir, 'config', 'config.toml'), {
           'rpc.laddr': `tcp://0.0.0.0:${port}`,
           'p2p.laddr': `tcp://0.0.0.0:${p2pPort}`,
@@ -434,16 +451,22 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           'api.enable': 'true',
           'api.address': `tcp://0.0.0.0:${apiPort}`,
           'grpc.address': `0.0.0.0:${grpcPort}`,
-          'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
           'minimum-gas-prices': minimumGasPrices ?? `0${denom}`,
           ...extraAppToml,
-        }, binary)
+        }, binary, {
+          // Newer SDKs serve gRPC-Web on api.address; older ones have a separate listener.
+          'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
+        })
 
         // 6. Start and wait for first block.
         // The container runs attached, so `docker run` forwards the node's
         // stdout/stderr to the child process — message buffering, events and
         // exit detection below are identical for both runtimes.
         const startCliArgs = ['start', ...(extraStartArgs ?? [])]
+        setStartDiagnostics({
+          phase: 'readiness check',
+          command: commandDisplay(binary, startCliArgs),
+        })
         return await runner.start(homeDir, startCliArgs, {
           emitter,
           ports: [port, p2pPort, apiPort, grpcPort, grpcWebPort, ...(extraPorts ?? [])],
@@ -557,8 +580,14 @@ function patchDenom(genesis: Genesis, denom: string): Genesis {
   return genesis
 }
 
-/** Simple TOML patcher for `[section]\nkey = "value"` patterns. */
-function patchToml(filePath: string, patches: Record<string, string>, binary: string): void {
+/** Internal config patcher. Optional defaults apply only when the key exists. */
+export function patchToml(
+  filePath: string,
+  patches: Record<string, string>,
+  binary: string,
+  optionalDefaults: Record<string, string> = {},
+): void {
+  const effectivePatches = { ...optionalDefaults, ...patches }
   let currentSection = ''
   const lines = fs.readFileSync(filePath, 'utf-8').split('\n')
   const result: string[] = []
@@ -571,7 +600,7 @@ function patchToml(filePath: string, patches: Record<string, string>, binary: st
     }
 
     let patched = false
-    for (const [patchKey, patchValue] of Object.entries(patches)) {
+    for (const [patchKey, patchValue] of Object.entries(effectivePatches)) {
       const dotIdx = patchKey.indexOf('.')
       const section = dotIdx >= 0 ? patchKey.slice(0, dotIdx) : ''
       const key = dotIdx >= 0 ? patchKey.slice(dotIdx + 1) : patchKey

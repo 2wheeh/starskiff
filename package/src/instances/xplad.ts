@@ -27,7 +27,7 @@ export const XPLA_DEFAULT_PRECOMPILES: readonly string[] = [
  * Official XPLA image, pinned to the version running on XPLA mainnet
  * (`dimension_1-1`). Used unless the caller opts into a binary.
  */
-export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.10.0'
+export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.11.4'
 
 export type XpladParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after xplad's defaults. */

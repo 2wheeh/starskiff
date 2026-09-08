@@ -36,8 +36,8 @@ export type Instance = {
     /** Get all buffered messages. */
     get(): string[]
   }
-  /** Start the instance. Returns a stop function. */
-  start(): Promise<() => void>
+  /** Start the instance. */
+  start(): Promise<void>
   /** Stop the instance and clean up resources. */
   stop(): Promise<void>
   /** Stop then start the instance. */
@@ -46,6 +46,8 @@ export type Instance = {
   on: Emitter<EventTypes>['on']
   /** Unsubscribe from instance events. */
   off: Emitter<EventTypes>['off']
+  /** Stop the instance when leaving an `await using` scope. */
+  [Symbol.asyncDispose](): Promise<void>
 }
 
 export type InstanceOptions = {
@@ -63,8 +65,17 @@ export type InstanceStartContext = {
   emitter: Emitter<EventTypes>
   /** Aborted when the managed start operation times out. */
   signal: AbortSignal
+  /** Record the active startup phase for actionable failure diagnostics. */
+  setStartDiagnostics(diagnostics: InstanceStartDiagnostics): void
   setEndpoint?(endpoint: { host?: string; port?: number }): void
   status: InstanceStatus
+}
+
+export type InstanceStartDiagnostics = {
+  /** Human-readable startup phase, such as `init` or `readiness`. */
+  phase: string
+  /** Logical command, excluding runtime wrappers and injected environment. */
+  command?: string
 }
 
 export type InstanceStopContext = {
@@ -90,6 +101,37 @@ export type InstanceFactory<
     ? [parameters?: P, options?: InstanceOptions]
     : [parameters: P, options?: InstanceOptions]
 ) => Omit<R, keyof Instance> & Instance
+
+const DIAGNOSTIC_OUTPUT_LIMIT = 64 * 1024
+const DIAGNOSTIC_LINE_LIMIT = 50
+
+function outputTail(output: string): string | undefined {
+  const normalized = output.slice(-DIAGNOSTIC_OUTPUT_LIMIT).trimEnd()
+  if (!normalized) return undefined
+  return normalized.split(/\r?\n/).slice(-DIAGNOSTIC_LINE_LIMIT).join('\n')
+}
+
+function startError(
+  name: string,
+  cause: unknown,
+  diagnostics: InstanceStartDiagnostics | undefined,
+  output: string,
+  timedOut: boolean,
+): Error {
+  const phase = diagnostics ? ` during ${diagnostics.phase}` : ''
+  const lines = [
+    `Instance "${name}" failed to start${timedOut ? ' in time' : ''}${phase}.`,
+  ]
+  if (diagnostics?.command) lines.push(`command: ${diagnostics.command}`)
+
+  const detail = outputTail(cause instanceof Error ? cause.message : String(cause))
+  if (!timedOut && detail) lines.push(`details:\n${detail}`)
+
+  const tail = outputTail(output)
+  if (tail) lines.push(`last ${DIAGNOSTIC_LINE_LIMIT} lines:\n${tail}`)
+
+  return new Error(lines.join('\n'), { cause })
+}
 
 /**
  * Creates an instance definition.
@@ -125,7 +167,7 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
     let port = raw.port
     const { messageBuffer = 20, timeout = 60_000 } = options
 
-    let startOperation: Promise<() => void> | undefined
+    let startOperation: Promise<void> | undefined
     let stopOperation: Promise<void> | undefined
     let stopCleanupOperation: Promise<void> | undefined
     let restartOperation: Promise<void> | undefined
@@ -133,12 +175,18 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
     const emitter = mitt<EventTypes>()
 
     let messages: string[] = []
+    let diagnosticOutput = ''
+    let startDiagnostics: InstanceStartDiagnostics | undefined
     let status: InstanceStatus = 'idle'
     let restarting = false
 
     const onMessage: Handler<string> = (message) => {
       messages.push(message)
       if (messages.length > messageBuffer) messages.shift()
+      diagnosticOutput += message
+      if (diagnosticOutput.length > DIAGNOSTIC_OUTPUT_LIMIT) {
+        diagnosticOutput = diagnosticOutput.slice(-DIAGNOSTIC_OUTPUT_LIMIT)
+      }
     }
     const onListening = () => {
       if (status === 'starting') status = 'started'
@@ -164,6 +212,8 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
 
     const clearRuntimeState = () => {
       self.messages.clear()
+      diagnosticOutput = ''
+      startDiagnostics = undefined
       unsubscribe()
     }
 
@@ -180,12 +230,14 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
         get() { return [...messages] },
       },
 
-      async start(): Promise<() => void> {
+      async start(): Promise<void> {
         if (status === 'starting' && startOperation) return startOperation
         if (status !== 'idle' && status !== 'stopped')
           throw new Error(`Instance "${name}" is not in an idle or stopped state. Status: ${status}`)
 
         status = 'starting'
+        diagnosticOutput = ''
+        startDiagnostics = undefined
         subscribe()
 
         const controller = new AbortController()
@@ -195,7 +247,8 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
           const startTimeout = new Promise<never>((_, reject) => {
             startTimer = setTimeout(() => {
               timedOut = true
-              const error = new Error(`Instance "${name}" failed to start in time.`)
+              const timeoutCause = new Error(`Instance "${name}" exceeded its ${timeout}ms start timeout.`)
+              const error = startError(name, timeoutCause, startDiagnostics, diagnosticOutput, true)
               controller.abort(error)
               reject(error)
             }, timeout)
@@ -206,6 +259,9 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
             {
               emitter,
               signal: controller.signal,
+              setStartDiagnostics(diagnostics) {
+                startDiagnostics = { ...diagnostics }
+              },
               setEndpoint(endpoint) {
                 if (endpoint.host !== undefined) host = endpoint.host
                 if (endpoint.port !== undefined) port = endpoint.port
@@ -217,12 +273,14 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
           try {
             await Promise.race([rawStart, startTimeout])
             status = 'started'
-            return self.stop.bind(self)
           } catch (error) {
             if (!timedOut) {
               status = 'idle'
+              const enriched = startDiagnostics
+                ? startError(name, error, startDiagnostics, diagnosticOutput, false)
+                : error
               clearRuntimeState()
-              throw error
+              throw enriched
             }
 
             // A timed-out start is not retryable until its teardown finishes.
@@ -327,6 +385,9 @@ export function define<P = undefined, R extends InstanceDefinition = InstanceDef
 
       on: emitter.on.bind(emitter),
       off: emitter.off.bind(emitter),
+      [Symbol.asyncDispose]() {
+        return self.stop()
+      },
     } satisfies Instance
 
     const knownKeys = new Set(Reflect.ownKeys(self))

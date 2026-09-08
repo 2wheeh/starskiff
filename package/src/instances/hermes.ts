@@ -128,10 +128,11 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
     host: 'localhost',
     port: telemetryPort,
 
-    async start(_opts, { emitter }) {
+    async start(_opts, { emitter, setStartDiagnostics }) {
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-hermes-'));
 
       try {
+      setStartDiagnostics({ phase: 'relayer configuration' });
       const configPath = path.join(homeDir, 'config.toml');
       const log = (message: string) => {
         emitter.emit('message', `[hermes-setup] ${message}\n`);
@@ -274,6 +275,10 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
 
       const run = async (args: string[], retries = commandRetries) => {
         let lastError: Error | undefined;
+        setStartDiagnostics({
+          phase: 'relayer setup',
+          command: [binary, ...args].join(' '),
+        });
 
         for (let attempt = 0; attempt <= retries; attempt++) {
           if (shouldAnnounceCommand(args)) {
@@ -462,6 +467,10 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
       log('all channels ready, starting relayer');
 
       // 4. Start relaying
+      setStartDiagnostics({
+        phase: 'relayer readiness check',
+        command: `${binary} start`,
+      });
       return await processManager.start(binary, ['--config', configPath, 'start'], {
         emitter,
         resolver({ process: proc, resolve, reject }) {

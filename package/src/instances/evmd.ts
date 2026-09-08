@@ -32,12 +32,14 @@ export const EVMD_DEFAULT_PRECOMPILES: readonly string[] = [
  *
  * cosmos/evm ships no official image, so — unlike a chain that publishes its
  * own — starskiff builds and redistributes this one to its public GHCR
- * namespace. Pinned to the multi-arch manifest **digest** (immutable: a
- * re-pushed tag can't change what this resolves to); CI asserts it equals
- * `config/images.json`. The digest corresponds to upstream cosmos/evm v0.7.1.
+ * namespace. Before first publication a new version is tag-pinned; after the
+ * workflow succeeds it is pinned to the multi-arch manifest **digest**
+ * (immutable: a re-pushed tag can't change what this resolves to). CI asserts
+ * it equals `config/images.json`. This image corresponds to upstream
+ * cosmos/evm v0.7.2.
  */
 export const EVMD_DEFAULT_IMAGE =
-  'ghcr.io/2wheeh/starskiff/evmd@sha256:dbe4d2da5ebb5ea716f721d331932ec83ca7b74767702f8d58c000172a233672'
+  'ghcr.io/2wheeh/starskiff/evmd@sha256:05780885a2ac68caef0120deae1066d49af5e5bf49180b2d99ac6060f8bdd0dd'
 
 export type EvmdParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after evmd's defaults. */

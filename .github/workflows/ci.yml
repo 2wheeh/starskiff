@@ -75,10 +75,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # All source-built lanes are gone (evmd moved to its published image), so
-      # only upstream prebuilt assets are provisioned. If a source-built entry
-      # returns to config/binaries.json, restore the "Download source-built
-      # binaries" step that gunzips them from the binaries/latest release.
+      # Host tools are fetched directly from their upstream releases. Chain
+      # nodes use images instead; config/images.json owns images we publish.
       - name: Download prebuilt binaries
         env:
           GH_TOKEN: ${{ github.token }}

@@ -156,9 +156,9 @@ describe('Instance', () => {
       const inst = instance();
 
       expect(inst.status).toBe('idle');
-      const stopFn = await inst.start();
+      const result = await inst.start();
       expect(inst.status).toBe('started');
-      expect(typeof stopFn).toBe('function');
+      expect(result).toBeUndefined();
     });
 
     it('stop → stopped', async () => {
@@ -540,6 +540,68 @@ describe('Instance', () => {
 
       const inst = instance(undefined, { timeout: 100 });
       await expect(inst.start()).rejects.toThrow('failed to start in time');
+    });
+
+    it('includes the active phase, logical command, and output tail', async () => {
+      vi.useFakeTimers();
+      const instance = Instance.define(() => ({
+        name: 'diagnostic-timeout',
+        host: 'localhost',
+        port: 3000,
+        async start(_options, { emitter, setStartDiagnostics }) {
+          setStartDiagnostics({
+            phase: 'readiness check',
+            command: 'chaind start --home /chain',
+          });
+          for (let index = 0; index < 60; index++) {
+            emitter.emit('message', `line-${index}\n`);
+          }
+          await new Promise(() => {});
+        },
+        async stop() {},
+      }));
+
+      const inst = instance(undefined, { messageBuffer: 1, timeout: 100 });
+      const startOperation = inst.start();
+      const startFailure = expect(startOperation).rejects.toThrow(
+        /failed to start in time during readiness check[\s\S]*command: chaind start --home \/chain[\s\S]*last 50 lines:[\s\S]*line-10[\s\S]*line-59/,
+      );
+      await vi.advanceTimersByTimeAsync(100);
+
+      await startFailure;
+      expect(inst.messages.get()).toEqual([]);
+    });
+
+    it('enriches a non-timeout startup failure before clearing messages', async () => {
+      const instance = Instance.define(() => ({
+        name: 'diagnostic-failure',
+        host: 'localhost',
+        port: 3000,
+        async start(_options, { emitter, setStartDiagnostics }) {
+          setStartDiagnostics({ phase: 'init', command: 'chaind init validator' });
+          emitter.emit('message', 'panic: invalid genesis\n');
+          throw new Error('exit code 1');
+        },
+        async stop() {},
+      }));
+
+      const inst = instance();
+      await expect(inst.start()).rejects.toThrow(
+        /failed to start during init[\s\S]*command: chaind init validator[\s\S]*details:\nexit code 1[\s\S]*last 50 lines:\npanic: invalid genesis/,
+      );
+      expect(inst.messages.get()).toEqual([]);
+    });
+  });
+
+  describe('async disposal', () => {
+    it('stops the instance', async () => {
+      const { instance } = fakeInstance({ startDelay: 10, stopDelay: 10 });
+      const inst = instance();
+      await inst.start();
+
+      await inst[Symbol.asyncDispose]();
+
+      expect(inst.status).toBe('stopped');
     });
   });
 });

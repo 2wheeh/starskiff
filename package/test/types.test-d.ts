@@ -31,7 +31,9 @@ expectTypeOf(chain.host).toBeString()
 expectTypeOf(chain.port).toBeNumber()
 expectTypeOf(chain.name).toBeString()
 expectTypeOf(chain.start).toBeFunction()
+expectTypeOf<ReturnType<typeof chain.start>>().toEqualTypeOf<Promise<void>>()
 expectTypeOf(chain.stop).toBeFunction()
+expectTypeOf(chain[Symbol.asyncDispose]).toBeFunction()
 
 // simd too
 const simdChain = Instance.simd({ chainId: 'test' })

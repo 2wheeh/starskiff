@@ -1,5 +1,69 @@
 # starskiff
 
+## 0.7.1
+
+### Patch Changes
+
+- [#34](https://github.com/2wheeh/starskiff/pull/34) [`90d5e96`](https://github.com/2wheeh/starskiff/commit/90d5e96859924ade70e423f85a18cde5e6a80ee1) Thanks [@2wheeh](https://github.com/2wheeh)! - Fixed spurious `grpc-web.address` warnings on SDKs that share the API listener. Legacy listeners and warnings for missing explicit overrides remain supported.
+
+- [#34](https://github.com/2wheeh/starskiff/pull/34) [`90d5e96`](https://github.com/2wheeh/starskiff/commit/90d5e96859924ade70e423f85a18cde5e6a80ee1) Thanks [@2wheeh](https://github.com/2wheeh)! - Fixed `Instance.marood({ policyAdmin })` leaving the Privacy contract-policy admin unchanged in maroo v0.8.0 genesis, while preserving existing policies.
+
+## 0.7.0
+
+### Minor Changes
+
+- [#30](https://github.com/2wheeh/starskiff/pull/30) [`5096805`](https://github.com/2wheeh/starskiff/commit/5096805b772243a5850de2b65be0347ee2c56637) Thanks [@2wheeh](https://github.com/2wheeh)! - Make `Instance.start()` resolve with `void` instead of a redundant stop
+  function, and add `Symbol.asyncDispose` for automatic cleanup with
+  `await using`.
+
+  The public lifecycle interface changes as follows:
+
+  ```diff
+  - start(): Promise<() => void>
+  + start(): Promise<void>
+  + [Symbol.asyncDispose](): Promise<void>
+  ```
+
+  Callers that used the returned stop function should migrate to the instance
+  method:
+
+  ```diff
+  - const stop = await instance.start()
+  - await stop()
+  + await instance.start()
+  + await instance.stop()
+  ```
+
+  Startup failures now retain the active phase, logical chain command, command
+  failure details, and a bounded 50-line output tail even after automatic
+  cleanup clears the public message buffer.
+
+- [#23](https://github.com/2wheeh/starskiff/pull/23) [`9f1e702`](https://github.com/2wheeh/starskiff/commit/9f1e702a73286227a1b851a2f0a99be985d6503f) Thanks [@2wheeh](https://github.com/2wheeh)! - Make `Instance.define` factories treat the first argument strictly as definition parameters and the second as lifecycle options, removing key-based argument guessing. Parameterless definitions now pass `undefined` before lifecycle options.
+
+### Patch Changes
+
+- [#20](https://github.com/2wheeh/starskiff/pull/20) [`7a5246f`](https://github.com/2wheeh/starskiff/commit/7a5246fb40fc9dd56654ce324ab271ca22158f7c) Thanks [@2wheeh](https://github.com/2wheeh)! - Allow custom Cosmos EVM definitions to configure a validated `evmChainId`, and let XRPL EVM instances set and expose it independently of their Cosmos `chainId`.
+
+- [#21](https://github.com/2wheeh/starskiff/pull/21) [`2a99348`](https://github.com/2wheeh/starskiff/commit/2a99348cb67525dd71ad14d4270fcb461a24650b) Thanks [@2wheeh](https://github.com/2wheeh)! - Replace the internal Cosmos execution helper with an optional `runtime` extension for custom chain definitions while keeping high-level Instance parameters domain-specific.
+
+- [#14](https://github.com/2wheeh/starskiff/pull/14) [`813b3e8`](https://github.com/2wheeh/starskiff/commit/813b3e8e190356b6694e6470dbe702b74d0cf035) Thanks [@2wheeh](https://github.com/2wheeh)! - Prevent retries from racing with cleanup after an instance start timeout, expose the timeout abort signal to instance definitions, and preserve custom property descriptors.
+
+- [#24](https://github.com/2wheeh/starskiff/pull/24) [`cead733`](https://github.com/2wheeh/starskiff/commit/cead7332a74bba38404430660e077df106b9324a) Thanks [@2wheeh](https://github.com/2wheeh)! - Upgrade the starskiff-published evmd image to cosmos/evm v0.7.1 and pin its multi-arch manifest digest.
+
+- [#25](https://github.com/2wheeh/starskiff/pull/25) [`b534f46`](https://github.com/2wheeh/starskiff/commit/b534f4601d70517d878fcb5ccafe05ced6af6f60) Thanks [@2wheeh](https://github.com/2wheeh)! - Enable the maroo v0.8 Privacy precompile at `0x100000000000000000000000000000000000000b` in `Instance.marood()`'s default active static precompile set.
+
+- [#18](https://github.com/2wheeh/starskiff/pull/18) [`598f9ab`](https://github.com/2wheeh/starskiff/commit/598f9abec62107db0b6d4de505b1953b400ec09d) Thanks [@2wheeh](https://github.com/2wheeh)! - Reject fractional, negative, non-finite, and unsafe `extraValidators` values when creating a Cosmos instance.
+
+- [#31](https://github.com/2wheeh/starskiff/pull/31) [`4387f50`](https://github.com/2wheeh/starskiff/commit/4387f50edd11a0ce57f9b0212f4067dd35b7c2c4) Thanks [@2wheeh](https://github.com/2wheeh)! - Upgrade Cosmos EVM-backed default images to releases patched for GHSA-7g4w-cg88-2cq2: evmd v0.7.2, MANTRA v8.4.0, and XRPL EVM v10.2.0. Pin all three artifacts by immutable manifest digest.
+
+- [#16](https://github.com/2wheeh/starskiff/pull/16) [`4c32e17`](https://github.com/2wheeh/starskiff/commit/4c32e17e3685d70370b0f4239b49479c5e83cf1b) Thanks [@2wheeh](https://github.com/2wheeh)! - Close already-reserved ports when allocating a later port fails, preventing test-process socket leaks.
+
+- [#32](https://github.com/2wheeh/starskiff/pull/32) [`6ce767a`](https://github.com/2wheeh/starskiff/commit/6ce767ad21c3021c8d850831ed7cc46028cce6af) Thanks [@2wheeh](https://github.com/2wheeh)! - Update the XPLA default to the latest available official GHCR image, v1.11.4. The security-fixed v1.12.0 release image is temporarily unavailable because its upstream container build cannot access a private dependency.
+
+- [#15](https://github.com/2wheeh/starskiff/pull/15) [`bb9f171`](https://github.com/2wheeh/starskiff/commit/bb9f171c60b4f8b05874f38eaedc7b4b0dcdb78f) Thanks [@2wheeh](https://github.com/2wheeh)! - Make Cosmos bootstrap commands cancellable across local-binary and Docker runtimes, replace blocking mnemonic recovery, and reject clean node exits that happen before readiness.
+
+- [#26](https://github.com/2wheeh/starskiff/pull/26) [`086e987`](https://github.com/2wheeh/starskiff/commit/086e98791ef58e71541f65f36767977aee4c8d86) Thanks [@2wheeh](https://github.com/2wheeh)! - Make high-level chain instance parameters reject simultaneous `image` and `binary` sources in TypeScript, and require one source for `marood` while preserving runtime validation for JavaScript callers.
+
 ## 0.6.1
 
 ### Patch Changes

@@ -33,7 +33,7 @@ afterAll(async () => {
 
 describe('mantra (container runtime)', () => {
   it('defaults to the official MANTRA image', () => {
-    expect(MANTRA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/mantra-chain\/mantrachain:/);
+    expect(MANTRA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/mantra-chain\/mantrachain@sha256:/);
   });
 
   it('produces blocks and serves Cosmos RPC on the published port', async () => {

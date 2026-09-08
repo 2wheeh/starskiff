@@ -36,7 +36,7 @@ afterAll(async () => {
 
 describe('xrplevm (container runtime)', () => {
   it('defaults to the official Peersyst image', () => {
-    expect(XRPLEVM_DEFAULT_IMAGE).toMatch(/^peersyst\/exrp:/);
+    expect(XRPLEVM_DEFAULT_IMAGE).toMatch(/^peersyst\/exrp@sha256:/);
   });
 
   it('produces blocks and serves Cosmos RPC on the published port', async () => {

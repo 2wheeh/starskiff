@@ -8,7 +8,7 @@ const RELAYER_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
 export default async function setup({ provide }: TestProject) {
   const cleanups: (() => Promise<void>)[] = [];
   const startAndRegister = async (instance: {
-    start(): Promise<() => void>;
+    start(): Promise<void>;
     stop(): Promise<void>;
   }) => {
     await instance.start();

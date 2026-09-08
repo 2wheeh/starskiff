@@ -42,7 +42,12 @@ export function commandErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'output' in error) {
     const output = (error as { output?: { stderr?: unknown } }).output
     if (typeof output?.stderr === 'string' && output.stderr.trim()) {
-      return output.stderr.trim()
+      return output.stderr
+        .slice(-(64 * 1024))
+        .trim()
+        .split(/\r?\n/)
+        .slice(-50)
+        .join('\n')
     }
   }
   return error instanceof Error ? error.message : String(error)
@@ -91,15 +96,20 @@ export function createCommandRunner(options: CommandRunnerOptions): CommandRunne
     async run(homeDir, args, runOptions = {}) {
       signal.throwIfAborted()
       const invocation = oneShotCommand(homeDir, args, runOptions.input !== undefined)
-      const result = x(invocation.command, invocation.args, {
-        signal,
-        throwOnError: true,
-        nodeOptions: { stdio: 'pipe', env: processEnvironment },
-      })
-      if (runOptions.input !== undefined) result.process?.stdin?.end(runOptions.input)
-      const output = await result
-      signal.throwIfAborted()
-      return output
+      try {
+        const result = x(invocation.command, invocation.args, {
+          signal,
+          throwOnError: true,
+          nodeOptions: { stdio: 'pipe', env: processEnvironment },
+        })
+        if (runOptions.input !== undefined) result.process?.stdin?.end(runOptions.input)
+        const output = await result
+        signal.throwIfAborted()
+        return output
+      } catch (error) {
+        signal.throwIfAborted()
+        throw new Error(commandErrorMessage(error), { cause: error })
+      }
     },
 
     start(homeDir, args, { ports, ...startOptions }) {

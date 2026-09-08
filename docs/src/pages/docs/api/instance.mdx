@@ -72,11 +72,19 @@ const instance = custom(undefined, { timeout: 30_000 });
 
 | Method                | Description                                                            |
 | --------------------- | ---------------------------------------------------------------------- |
-| `start()`             | Boot the node; resolves after the first block (EVM chains also wait for JSON-RPC). Returns a stop function. |
+| `start()`             | Boot the node; resolves after the first block (EVM chains also wait for JSON-RPC). |
 | `stop()`              | Kill the process and delete the temp home directory.                   |
 | `restart()`           | Stop then start.                                                       |
 | `on(event, handler)`  | Listen to events: `message`, `stdout`, `stderr`, `listening`, `exit`.  |
 | `off(event, handler)` | Remove a listener.                                                     |
+
+Instances implement `Symbol.asyncDispose`, so an `await using` scope performs
+the same cleanup as `stop()`:
+
+```ts
+await using instance = Instance.wasmd();
+await instance.start();
+```
 
 ## Properties
 
