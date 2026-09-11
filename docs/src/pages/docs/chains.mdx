@@ -4,6 +4,11 @@ Beyond the [test nodes](/docs/instances), starskiff ships instance definitions f
 
 - **`Instance.xplad()`** — [XPLA](https://xpla.io). Runs the official `ghcr.io/xpladev/xpla` image (pinned to the mainnet version) by default. EVM + CosmWasm; exposes `evmPort` / `evmUrl`.
 - **`Instance.gaiad()`** — [Cosmos Hub](https://github.com/cosmos/gaia). Runs the official `ghcr.io/cosmos/gaia` image (tags track mainnet exactly) by default. Useful as an IBC counterparty chain.
+- **`Instance.provenanced()`** — [Provenance](https://github.com/provenance-io/provenance), v1.30.0. Defaults to the official multi-architecture image. Native denom `nhash`, prefix `pb`, coin type 505.
+- **`Instance.cronosd({ binary: 'cronosd' })`** — [Cronos](https://github.com/crypto-org-chain/cronos), tested with v1.7.8. Requires a binary or an image containing `cronosd`. Exposes Cosmos APIs and `evmUrl`; defaults to EVM chain ID 25, denom `basecro`, and Ethermint account derivation (coin type 60). Keep the binary's bundled libraries alongside it when extracting an upstream release.
+- **`Instance.dydxprotocold({ binary: 'dydxprotocold' })`** — [dYdX v4](https://github.com/dydxprotocol/v4-chain), tested with v9.6.4. Requires a Linux binary or an image containing `dydxprotocold`. Native denom `adydx`, prefix `dydx`. Boots consensus and SDK APIs with the default BTC/ETH genesis prices; external price, bridge, liquidation and Slinky oracle daemons are disabled. Trading markets and live price feeds are not provisioned; use `patchGenesis` for your fixtures.
+- **`Instance.seid()`** — [Sei](https://github.com/sei-protocol/sei-chain), v6.6.3. Defaults to the official multi-architecture image, Cosmos APIs, and EVM `evmUrl`. Uses native Cosmos accounts (coin type 118), `usei`, and local chain ID `starskiff-sei-1` (EVM ID 713714). Public IDs `pacific-1`, `atlantic-2`, and `arctic-1` are rejected because the CLI loads embedded public-network genesis for them.
+- **`Instance.thornode()`** — [THORChain](https://gitlab.com/thorchain/thornode), v3.20.1. Defaults to the official mainnet image, which is amd64-only; arm64 Docker hosts need amd64 emulation. Boots one active, unbonded validator with `rune` and prefix `thor` (coin type 931). Does not launch Bifrost, external chains, or vault signing. THORChain uses its native send messages; SDK bank sends are disabled. `extraValidators`, `validatorStake`, `prefix`, and `denom` overrides are not supported.
 - **`Instance.mantra()`** — [MANTRA](https://www.mantrachain.io). Runs the official `ghcr.io/mantra-chain/mantrachain` image (multi-arch, pinned to mainnet) by default. cosmos/evm + CosmWasm; defaults mirror mainnet (`mantra-1`, `eth_chainId` 5888).
 - **`Instance.xrplevm()`** — [XRPL EVM](https://www.xrplevm.org). Runs the official `peersyst/exrp` image (pinned to mainnet) by default. cosmos/evm; defaults mirror mainnet (`xrplevm_1440000-1`, `eth_chainId` 1440000). Set `evmChainId` when a custom Cosmos `chainId` should use a different EVM JSON-RPC identity. The image is amd64-only — on arm64 hosts pre-pull with `docker pull --platform linux/amd64` (runs emulated) or pass a `binary`.
 - **`Instance.marood()`** — maroo. Private node source, so no default image: inject your own `binary`, or a private `image` where your CI allows it. `network: 'mainnet' | 'testnet'` presets select chain id + denoms; `testnet` matches viem's `marooTestnet`. The maroo module params (agent/eas/pcl/okrw) are seeded at genesis, and the default active set includes the v0.8 Privacy precompile; pass `policyAdmin` / `minterAddress` to claim the admin-gated paths.
@@ -11,6 +16,11 @@ Beyond the [test nodes](/docs/instances), starskiff ships instance definitions f
 ```ts
 Instance.xplad(); // official image out of the box
 Instance.gaiad(); // official image out of the box
+Instance.provenanced();
+Instance.seid();
+Instance.thornode();
+Instance.cronosd({ binary: '/path/to/cronos/bin/cronosd' });
+Instance.dydxprotocold({ binary: '/path/to/dydxprotocold' });
 Instance.marood({ binary: 'marood', network: 'testnet' }); // no default image — injection required
 ```
 

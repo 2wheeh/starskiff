@@ -25,6 +25,11 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 | `Instance.wasmd()`  | image `cosmwasm/wasmd`                 | bank, staking, gov, mint, **IBC**, **CosmWasm** | Contract deploy/execute, IBC   |
 | `Instance.simd()`   | image `ghcr.io/cosmos/simapp`          | bank, staking, gov, mint                        | Lightweight Cosmos SDK testing |
 | `Instance.gaiad()`  | image `ghcr.io/cosmos/gaia`            | Cosmos Hub (IBC)                                | IBC counterparty chain         |
+| `Instance.provenanced()` | image `provenanceio/provenance` | Provenance SDK + CosmWasm | HASH and Provenance module testing |
+| `Instance.cronosd()` | **required** — `image` or `binary` | Cronos SDK + **EVM** | Cronos testing (eth 25) |
+| `Instance.dydxprotocold()` | **required** — `image` or `binary` | dYdX v4 SDK | SDK APIs and genesis fixtures |
+| `Instance.seid()` | image `ghcr.io/sei-protocol/sei` | Sei SDK + **EVM** + CosmWasm | Sei testing (local eth 713714) |
+| `Instance.thornode()` | image `registry.gitlab.com/thorchain/thornode` (amd64-only) | THORChain SDK | Single-validator THORChain testing |
 | `Instance.xplad()`  | image `ghcr.io/xpladev/xpla`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
 | `Instance.mantra()` | image `ghcr.io/mantra-chain/mantrachain` | Cosmos SDK + **EVM** + CosmWasm               | MANTRA testing (eth 5888)      |
 | `Instance.xrplevm()` | image `peersyst/exrp` (amd64-only)    | Cosmos SDK + **EVM** (cosmos/evm)               | XRPL EVM testing (eth 1440000) |
@@ -32,7 +37,7 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 | `Instance.marood()` | **required** — `image` or `binary` (private) | Cosmos SDK + **EVM** + maroo modules      | maroo chain (viem `marooTestnet`) |
 | `Instance.hermes()` | binary `hermes`                        | — (IBC relayer)                                 | Relaying between two instances |
 
-Every instance is **image-first**: where a usable, version-pinned image exists it's the default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. The two overrides are mutually exclusive in TypeScript and at runtime. Where none exists (`marood` — private node source) exactly one source is **required** by its TypeScript signature, with runtime validation retained for JavaScript callers. `hermes` is a relayer run as a host binary, not a chain node. See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
+Every instance is **image-first**: where a usable, version-pinned image exists it's the default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. The two overrides are mutually exclusive in TypeScript and at runtime. Where none exists (`cronosd`, `dydxprotocold`, and the private `marood` node) exactly one source is **required** by its TypeScript signature, with runtime validation retained for JavaScript callers. `hermes` is a relayer run as a host binary, not a chain node. See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
 
 > `evmd`'s default image is built from cosmos/evm source by the `publish-images` workflow and pinned by multi-arch manifest **digest** — the default always resolves to the exact published artifact.
 
@@ -46,7 +51,9 @@ starskiff is ESM-only and supports Node.js 22 or newer.
 
 ### Prerequisites
 
-Image-backed instances (`simd`, `wasmd`, `gaiad`, `xplad`, `xrplevm`, `mantra`, `evmd`) need only a running **Docker** — the image is pulled on first use. The `hermes` relayer needs its binary on `PATH` (official releases at [informalsystems/hermes](https://github.com/informalsystems/hermes/releases)); `marood` (no default image) needs an injected source — an `image`, or a binary on `PATH`.
+Image-backed instances (`simd`, `wasmd`, `gaiad`, `xplad`, `xrplevm`, `mantra`, `evmd`, `provenanced`, `seid`, `thornode`) need a running **Docker** — the image is pulled on first use. THORChain's image is amd64-only; arm64 hosts need emulation. The `hermes` relayer needs its binary on `PATH` (official releases at [informalsystems/hermes](https://github.com/informalsystems/hermes/releases)); `cronosd`, `dydxprotocold`, and `marood` need an injected image or binary.
+
+Cronos is tested with [v1.7.8](https://github.com/crypto-org-chain/cronos/releases/tag/v1.7.8); keep bundled libraries alongside the executable. dYdX is tested with [v9.6.4](https://github.com/dydxprotocol/v4-chain/releases/tag/protocol/v9.6.4), available as Linux binaries. Its external price, bridge, liquidation and oracle daemons are disabled; trading markets are not provisioned. THORChain boots a single unbonded validator without Bifrost or vault signing. Sei uses local chain ID `starskiff-sei-1` (EVM 713714); public-network IDs are rejected to avoid loading embedded mainnet/testnet genesis. See [Chains](./../docs/src/pages/docs/chains.mdx) for chain-specific behavior.
 
 Any instance also accepts a `binary` (local executable) or `image` (custom tag) override — the [escape hatch](./../docs/src/pages/docs/guides/docker.mdx#escape-hatches) for local development, e.g. running an image-backed chain from a source build without Docker.
 

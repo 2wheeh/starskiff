@@ -67,6 +67,9 @@ importers:
       '@cosmjs/cosmwasm-stargate':
         specifier: ^0.38.1
         version: 0.38.1
+      '@cosmjs/crypto':
+        specifier: ^0.38.1
+        version: 0.38.1
       '@cosmjs/proto-signing':
         specifier: ^0.38.1
         version: 0.38.1
