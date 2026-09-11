@@ -57,7 +57,7 @@ type DefinedChainConfig<
 > = {
   name: Name
   factory: F
-  parameters: FactoryParameters<F> | undefined
+  parameters: FactoryParameters<F>
   options: Readonly<InstanceOptions>
 }
 

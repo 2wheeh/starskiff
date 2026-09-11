@@ -220,6 +220,18 @@ defineConfig({ chains: { wasm: { factory: Instance.wasmd } } })
 const configuredWasm = declarativeConfig.chains.find((chain) => chain.name === 'wasm')!
 expectTypeOf(configuredWasm.factory).toEqualTypeOf<typeof Instance.wasmd>()
 expectTypeOf(configuredWasm.options).toEqualTypeOf<Readonly<Instance.InstanceOptions>>()
+configuredWasm.factory(configuredWasm.parameters, configuredWasm.options)
+
+const configuredMaroo = declarativeConfig.chains.find((chain) => chain.name === 'maroo')!
+expectTypeOf(configuredMaroo.parameters).toEqualTypeOf<MaroodParameters>()
+configuredMaroo.factory(configuredMaroo.parameters, configuredMaroo.options)
+
+const requiredConfig = defineConfig({
+  chains: { maroo: { factory: Instance.marood, parameters: { binary: 'marood' } } },
+})
+for (const chain of requiredConfig.chains) {
+  chain.factory(chain.parameters, chain.options)
+}
 
 defineConfig({
   chains: {
