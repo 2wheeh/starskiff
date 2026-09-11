@@ -4,12 +4,13 @@ import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
 /**
- * Official MANTRA chain v8.4.0 image, pinned by immutable multi-arch manifest
- * digest to the version running on mainnet (`mantra-1`). Used unless the caller
- * opts into a binary.
+ * Official MANTRA chain v8.5.0-pre.1 image, pinned by immutable multi-arch
+ * manifest digest. This version is running on mainnet (`mantra-1`, checked
+ * 2026-09-11) despite its prerelease suffix. Used unless the caller opts into
+ * a binary.
  */
 export const MANTRA_DEFAULT_IMAGE =
-  'ghcr.io/mantra-chain/mantrachain@sha256:0b3ea13db9252a4b7fec04a4cb1b6514cf974158ceb654c22f29d9383a5810f7'
+  'ghcr.io/mantra-chain/mantrachain@sha256:14c5f8ca53c9a6f4422971e617076c106bbdcaf9fba02279196121051566d8d2'
 
 /**
  * Default active static precompiles for mantra.
