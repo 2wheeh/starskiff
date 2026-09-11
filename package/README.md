@@ -189,57 +189,55 @@ export default defineConfig({
 ```
 
 `defineConfig()` validates references and normalizes the declaration; it does
-not discover the file or start instances. Automatic Vitest and Playwright
-lifecycle adapters remain separate roadmap items. See the
+not discover the file or start instances. Use `starskiff/vitest` to run it
+with Vitest. A Playwright adapter remains a separate roadmap item. See the
 [declarative config guide](./../docs/src/pages/docs/guides/config.mdx).
 
-### vitest globalSetup (provide/inject)
+### Vitest setup
+
+Use the config above with `createGlobalSetup()` to allocate missing ports, start
+chains and Hermes once per test project, and stop them after tests or a setup
+failure:
 
 ```ts
 // test/global-setup.ts
-import type { TestProject } from 'vitest/node';
-import { Instance } from 'starskiff';
+import { createGlobalSetup, type StarskiffContext } from 'starskiff/vitest';
+import config from '../starskiff.config.js';
 
-export default async function setup({ provide }: TestProject) {
-  const instance = Instance.wasmd({
-    chainId: 'test-1',
-    accounts: [{ mnemonic: '...', coins: '1000000000stake' }],
-  });
-  await instance.start();
-
-  provide('rpcUrl', instance.rpcUrl);
-
-  return () => instance.stop();
-}
+export default createGlobalSetup(config);
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    rpcUrl: string;
+    starskiff: StarskiffContext<typeof config>;
   }
 }
 ```
 
 ```ts
 // vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
 export default defineConfig({
-  test: {
-    globalSetup: './test/global-setup.ts',
-  },
+  test: { globalSetup: './test/global-setup.ts' },
 });
 ```
 
 ```ts
-// test/bank.test.ts
-import { inject } from 'vitest';
+// test/chain.test.ts
+import { expect, inject, it } from 'vitest';
 
-const rpcUrl = inject('rpcUrl');
+const { chains } = inject('starskiff');
 
-it('queries balance', async () => {
-  const client = await StargateClient.connect(rpcUrl);
-  const balance = await client.getBalance(address, 'stake');
-  // ...
+it('serves the configured chain', async () => {
+  const response = await fetch(`${chains.wasm.rpcUrl}/status`);
+  expect(response.ok).toBe(true);
 });
 ```
+
+The worker context contains chain names, IDs, denoms, prefixes, and RPC/gRPC/REST
+URLs, plus `evmUrl` on EVM chains. Tests in the same project share chain state,
+including watch reruns. See the [Vitest guide](https://starskiff.vercel.app/docs/guides/vitest)
+for port allocation, failure cleanup, and custom-chain requirements.
 
 ### Multi-chain
 
