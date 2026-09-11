@@ -11,6 +11,28 @@
   ],
   "binaries": [
     {
+      "name": "cronosd",
+      "repo": "crypto-org-chain/cronos",
+      "ref": "v1.7.8",
+      "reason": "no usable official public node image; the instance requires an injected image or binary",
+      "buildType": "prebuilt",
+      "asset": "cronos_1.7.8_Linux_x86_64.tar.gz",
+      "sha256": "3840147724054449e3b8dd9a3829b88979da628686720dc16a9f39a5fbc911d4",
+      "extract": "tar",
+      "binaryPath": "bin/cronosd"
+    },
+    {
+      "name": "dydxprotocold",
+      "repo": "dydxprotocol/v4-chain",
+      "ref": "protocol/v9.6.4",
+      "reason": "no usable official public node image; the instance requires an injected image or binary",
+      "buildType": "prebuilt",
+      "asset": "dydxprotocold-v9.6.4-linux-amd64.tar.gz",
+      "sha256": "4c1d38640a424c39aadbe238e4b79ca42d80f8101e16b32c597d8c441d99d7fa",
+      "extract": "tar",
+      "binaryPath": "build/dydxprotocold-v9.6.4-linux-amd64"
+    },
+    {
       "name": "hermes",
       "repo": "informalsystems/hermes",
       "ref": "v1.13.3",

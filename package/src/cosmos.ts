@@ -141,7 +141,7 @@ export type Genesis = {
     crisis?: { constant_fee?: { denom: string } }
     gov?: {
       deposit_params?: { min_deposit?: { denom: string }[] }
-      params?: { min_deposit?: { denom: string }[] }
+      params?: { min_deposit?: { denom: string }[]; expedited_min_deposit?: { denom: string }[] }
     }
     bank?: { denom_metadata?: unknown[] }
     feemarket?: {
@@ -158,6 +158,13 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   binary: string
   /** Instance name. */
   name: string
+  /** CLI path for genesis commands. Use `[]` for SDK forks with root commands. */
+  genesisCommand?: string[]
+  /** Replace staking gentxs for chains with their own genesis validator registry. */
+  setupValidators?: (context: {
+    genesisPath: string
+    run: (args: string[], options?: { input?: string }) => Promise<{ stdout: string; stderr: string }>
+  }) => Promise<void>
   /** Hook to patch genesis after default denom patching. */
   patchGenesis?: (genesis: Genesis) => Genesis
   /**
@@ -172,8 +179,8 @@ export type CosmosBaseParameters = CosmosChainParameters & {
   extraAppToml?: Record<string, string>
   /** Additional config.toml patches. Merged after default patches. */
   extraConfigToml?: Record<string, string>
-  /** Extra args appended to the `start` command (e.g. `['--chain-id', id]`). */
-  extraStartArgs?: string[]
+  /** Extra start args; the callback receives the home path inside the selected runtime. */
+  extraStartArgs?: string[] | ((homeDir: string) => string[])
   /**
    * Additional ports to publish when running from an image (e.g. the EVM
    * JSON-RPC port, added by `cosmosEvmBase`). Ignored by the binary runtime,
@@ -190,9 +197,10 @@ export type CosmosBaseParameters = CosmosChainParameters & {
    * Runtime inputs for every chain CLI invocation. Environment applies to
    * local and container commands; mounts apply only to containers. Intended
    * for custom chain definitions; high-level Instance interfaces expose
-   * domain-specific options instead.
+   * domain-specific options instead. A callback receives the runtime's home
+   * path (`/chain` in a container, the temporary directory for a binary).
    */
-  runtime?: CosmosRuntimeOptions
+  runtime?: CosmosRuntimeOptions | ((homeDir: string) => CosmosRuntimeOptions)
 }
 
 function commandDisplay(binary: string, args: readonly string[]): string {
@@ -214,6 +222,8 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
   const {
     binary,
     name,
+    genesisCommand = ['genesis'],
+    setupValidators,
     chainId = 'starskiff-1',
     denom = 'stake',
     prefix = 'cosmos',
@@ -242,6 +252,9 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
 
   if (!Number.isSafeInteger(extraValidators) || extraValidators < 0) {
     throw new Error('extraValidators must be a finite non-negative integer.')
+  }
+  if (setupValidators && extraValidators !== 0) {
+    throw new Error('extraValidators cannot be combined with custom validator registration.')
   }
 
   const host = 'localhost'
@@ -313,7 +326,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           containerName,
           image,
           name,
-          runtime,
+          runtime: typeof runtime === 'function' ? runtime(image ? CONTAINER_HOME : homeDir) : runtime,
           signal,
         })
         setStartDiagnostics({ phase: 'runtime preparation' })
@@ -344,7 +357,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         // 3. Validator + accounts
         await run('validator setup', ['keys', 'add', 'validator', '--keyring-backend', 'test'])
         await run('validator setup', [
-          'genesis', 'add-genesis-account', 'validator',
+          ...genesisCommand, 'add-genesis-account', 'validator',
           `${validatorBalance}${denom}`, '--keyring-backend', 'test',
         ])
 
@@ -365,71 +378,78 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           }
 
           await run('genesis accounts', [
-            'genesis', 'add-genesis-account', keyName,
+            ...genesisCommand, 'add-genesis-account', keyName,
             sortCoins(account.coins), '--keyring-backend', 'test',
           ])
         }
 
         // 4. Gentx (default validator) + any extra validators, then collect.
-        await run('gentx', [
-          'genesis', 'gentx', 'validator', `${validatorStake}${denom}`,
-          '--chain-id', chainId, '--keyring-backend', 'test',
-        ])
-
-        // Each extra validator needs a DISTINCT consensus key. A single `init`
-        // only yields one priv_validator_key, so derive each extra validator's
-        // consensus pubkey from a throwaway home and pass it via `gentx --pubkey`.
-        const extraStake = computeExtraValidatorStake(validatorStake, extraValidators)
-        for (let i = 1; i <= extraValidators; i++) {
-          const valName = `validator-${i}`
-          await run('validator setup', ['keys', 'add', valName, '--keyring-backend', 'test'])
-          await run('genesis accounts', [
-            'genesis', 'add-genesis-account', valName,
-            `${validatorBalance}${denom}`, '--keyring-backend', 'test',
+        if (setupValidators) {
+          await setupValidators({
+            genesisPath,
+            run: (args, options) => run('validator registration', args, options),
+          })
+        } else {
+          await run('gentx', [
+            ...genesisCommand, 'gentx', 'validator', `${validatorStake}${denom}`,
+            '--chain-id', chainId, '--keyring-backend', 'test',
           ])
 
-          const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
-          // The throwaway home is a *different* directory, so under docker it
-          // needs its own bind mount rather than the instance's.
-          const runInConsHome = (phase: string, args: string[]) => {
-            setStartDiagnostics({ phase, command: commandDisplay(binary, args) })
-            return runner!.run(consHome, args)
-          }
-          try {
-            await runInConsHome('validator consensus setup', ['init', valName, '--chain-id', chainId])
-            // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
-            // the `tendermint` alias, so fall back to it.
-            let pubkey: string
-            try {
-              pubkey = (await runInConsHome('validator consensus setup', ['comet', 'show-validator'])).stdout
-            } catch {
-              signal.throwIfAborted()
-              pubkey = (await runInConsHome('validator consensus setup', ['tendermint', 'show-validator'])).stdout
-            }
-            await run('gentx', [
-              'genesis', 'gentx', valName, `${extraStake}${denom}`,
-              '--pubkey', pubkey.trim(),
-              '--moniker', valName,
-              // All gentx share this home's node key, so the default
-              // `gentx-<nodeID>.json` filename collides — write a distinct file.
-              // The path is resolved by the chain CLI, so it must be expressed
-              // in the container's filesystem when running from an image.
-              '--output-document',
-              image
-                ? `${CONTAINER_HOME}/config/gentx/gentx-${valName}.json`
-                : path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
-              '--chain-id', chainId, '--keyring-backend', 'test',
+          // Each extra validator needs a DISTINCT consensus key. A single `init`
+          // only yields one priv_validator_key, so derive each extra validator's
+          // consensus pubkey from a throwaway home and pass it via `gentx --pubkey`.
+          const extraStake = computeExtraValidatorStake(validatorStake, extraValidators)
+          for (let i = 1; i <= extraValidators; i++) {
+            const valName = `validator-${i}`
+            await run('validator setup', ['keys', 'add', valName, '--keyring-backend', 'test'])
+            await run('genesis accounts', [
+              ...genesisCommand, 'add-genesis-account', valName,
+              `${validatorBalance}${denom}`, '--keyring-backend', 'test',
             ])
-          } finally {
+
+            const consHome = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-cons-'))
+            // The throwaway home is a *different* directory, so under docker it
+            // needs its own bind mount rather than the instance's.
+            const runInConsHome = (phase: string, args: string[]) => {
+              setStartDiagnostics({ phase, command: commandDisplay(binary, args) })
+              return runner!.run(consHome, args)
+            }
             try {
-              fs.rmSync(consHome, { recursive: true, force: true })
-            } catch {
-              // best-effort: preserve the command error, if any
+              await runInConsHome('validator consensus setup', ['init', valName, '--chain-id', chainId])
+              // `comet show-validator` (SDK ≥ v0.50); older binaries only expose
+              // the `tendermint` alias, so fall back to it.
+              let pubkey: string
+              try {
+                pubkey = (await runInConsHome('validator consensus setup', ['comet', 'show-validator'])).stdout
+              } catch {
+                signal.throwIfAborted()
+                pubkey = (await runInConsHome('validator consensus setup', ['tendermint', 'show-validator'])).stdout
+              }
+              await run('gentx', [
+                ...genesisCommand, 'gentx', valName, `${extraStake}${denom}`,
+                '--pubkey', pubkey.trim(),
+                '--moniker', valName,
+                // All gentx share this home's node key, so the default
+                // `gentx-<nodeID>.json` filename collides — write a distinct file.
+                // The path is resolved by the chain CLI, so it must be expressed
+                // in the container's filesystem when running from an image.
+                '--output-document',
+                image
+                  ? `${CONTAINER_HOME}/config/gentx/gentx-${valName}.json`
+                  : path.join(homeDir!, 'config', 'gentx', `gentx-${valName}.json`),
+                '--chain-id', chainId, '--keyring-backend', 'test',
+              ])
+            } finally {
+              try {
+                fs.rmSync(consHome, { recursive: true, force: true })
+              } catch {
+                // best-effort: preserve the command error, if any
+              }
             }
           }
-        }
 
-        await run('gentx collection', ['genesis', 'collect-gentxs'])
+          await run('gentx collection', [...genesisCommand, 'collect-gentxs'])
+        }
 
         if (finalizeGenesis) {
           setStartDiagnostics({ phase: 'genesis finalization' })
@@ -442,10 +462,13 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         patchToml(path.join(homeDir, 'config', 'config.toml'), {
           'rpc.laddr': `tcp://0.0.0.0:${port}`,
           'p2p.laddr': `tcp://0.0.0.0:${p2pPort}`,
-          'rpc.pprof_laddr': `localhost:${pprofPort}`,
-          'consensus.timeout_commit': '1s',
           ...extraConfigToml,
-        }, binary)
+        }, binary, {
+          'rpc.pprof_laddr': `localhost:${pprofPort}`,
+          'rpc.pprof-laddr': `localhost:${pprofPort}`,
+          'consensus.timeout_commit': '1s',
+          'consensus.unsafe-commit-timeout-override': '1s',
+        })
 
         patchToml(path.join(homeDir, 'config', 'app.toml'), {
           'api.enable': 'true',
@@ -462,7 +485,9 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
         // The container runs attached, so `docker run` forwards the node's
         // stdout/stderr to the child process — message buffering, events and
         // exit detection below are identical for both runtimes.
-        const startCliArgs = ['start', ...(extraStartArgs ?? [])]
+        const startCliArgs = ['start', ...(typeof extraStartArgs === 'function'
+          ? extraStartArgs(image ? CONTAINER_HOME : homeDir)
+          : extraStartArgs ?? [])]
         setStartDiagnostics({
           phase: 'readiness check',
           command: commandDisplay(binary, startCliArgs),
@@ -495,9 +520,11 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
               try {
                 const res = await fetch(`${rpcUrl}/status`, { signal })
                 if (res.ok) {
-                  const data = await res.json() as { result?: { sync_info?: { latest_block_height?: string } } }
+                  type Status = { sync_info?: { latest_block_height?: string } }
+                  const data = await res.json() as Status & { result?: Status }
+                  // Sei returns status without a JSON-RPC envelope.
                   const height = Number(
-                    data.result?.sync_info?.latest_block_height ?? 0,
+                    (data.result ?? data).sync_info?.latest_block_height ?? 0,
                   )
                   if (height > 0 && (extraReadinessCheck ? await extraReadinessCheck() : true)) {
                     finish()
@@ -672,6 +699,8 @@ export type CosmosEvmBaseParameters = CosmosEvmChainParameters & {
   finalizeGenesis?: (genesis: Genesis) => Genesis
   /** Additional config.toml patches, forwarded to cosmosBase. */
   extraConfigToml?: Record<string, string>
+  /** Additional app.toml patches, applied after EVM listener defaults. */
+  extraAppToml?: Record<string, string>
   /** Extra `start` command args, forwarded to cosmosBase. */
   extraStartArgs?: string[]
   /**
@@ -706,6 +735,7 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
     evmChainId,
     evmPort = 8545,
     extraStartArgs = [],
+    extraAppToml,
     relayerHints,
     activeStaticPrecompiles,
     patchGenesis: userPatch,
@@ -742,6 +772,7 @@ export function cosmosEvmBase(parameters: CosmosEvmBaseParameters) {
     extraAppToml: {
       'json-rpc.enable': 'true',
       'json-rpc.address': `0.0.0.0:${evmPort}`,
+      ...extraAppToml,
     },
     // EVM-enabled Cosmos chains use eth_secp256k1 keys and ETH coin type 60.
     // Default `pkTypeUrl` targets the cosmos-evm module proto (current
