@@ -1,5 +1,11 @@
 # starskiff
 
+## 0.7.2
+
+### Patch Changes
+
+- [#38](https://github.com/2wheeh/starskiff/pull/38) [`da04abc`](https://github.com/2wheeh/starskiff/commit/da04abcdf0af24933686ce42d9570411eab51b41) Thanks [@2wheeh](https://github.com/2wheeh)! - Update the `Instance.mantra()` default image to v8.5.0-pre.1, the version running on MANTRA mainnet, and pin its multi-arch manifest digest.
+
 ## 0.7.1
 
 ### Patch Changes
