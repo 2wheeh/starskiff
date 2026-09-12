@@ -1,27 +1,41 @@
-# vitest Setup [Share one instance across a test suite with globalSetup]
+# Vitest Setup [Start a configured topology once per test project]
 
-Boot the instance once in a [globalSetup](https://vitest.dev/config/#globalsetup), pass its URLs to tests via `provide`/`inject`, and stop it in the returned teardown:
+`createGlobalSetup()` from `starskiff/vitest` starts the chains and relayers in a [declarative config](/docs/guides/config), passes their endpoints to test workers, and stops them when the project finishes. Install Vitest in your project; the adapter uses its standard [globalSetup](https://vitest.dev/config/globalsetup) and [provide/inject](https://vitest.dev/config/provide) interfaces.
+
+## Declare the topology
+
+```ts
+// starskiff.config.ts
+import { defineConfig, Instance, testAccounts } from 'starskiff';
+
+export default defineConfig({
+  chains: {
+    wasm: {
+      factory: Instance.wasmd,
+      parameters: {
+        chainId: 'wasm-test-1',
+        accounts: [{ mnemonic: testAccounts[0].mnemonic, coins: '1000000000stake' }],
+      },
+      options: { timeout: 120_000 },
+    },
+  },
+});
+```
+
+## Register global setup
+
+Import the config directly from a setup file and export the generated setup function. This also keeps TypeScript config loading in Vitest's normal module pipeline.
 
 ```ts
 // test/global-setup.ts
-import type { TestProject } from 'vitest/node';
-import { Instance } from 'starskiff';
+import { createGlobalSetup, type StarskiffContext } from 'starskiff/vitest';
+import config from '../starskiff.config.js';
 
-export default async function setup({ provide }: TestProject) {
-  const instance = Instance.simd({
-    chainId: 'test-1',
-    accounts: [{ mnemonic: '...', coins: '1000000000stake' }],
-  });
-  await instance.start();
-
-  provide('rpcUrl', instance.rpcUrl);
-
-  return () => instance.stop();
-}
+export default createGlobalSetup(config);
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    rpcUrl: string;
+    starskiff: StarskiffContext<typeof config>;
   }
 }
 ```
@@ -37,29 +51,39 @@ export default defineConfig({
 });
 ```
 
+## Use endpoints in tests
+
 ```ts
 // test/bank.test.ts
-import { it } from 'vitest';
-import { inject } from 'vitest';
+import { expect, inject, it } from 'vitest';
 import { StargateClient } from '@cosmjs/stargate';
 
-const rpcUrl = inject('rpcUrl');
+const { chains } = inject('starskiff');
 
-it('queries balance', async () => {
-  const client = await StargateClient.connect(rpcUrl);
-  const balance = await client.getBalance(address, 'stake');
-  // ...
+it('connects to the configured chain', async () => {
+  const client = await StargateClient.connect(chains.wasm.rpcUrl);
+  try {
+    expect(await client.getChainId()).toBe(chains.wasm.chainId);
+  } finally {
+    client.disconnect();
+  }
 });
 ```
 
-## Skipping when a runtime is missing
+`StarskiffContext<typeof config>` preserves the configured chain names. Each chain exposes `chainId`, `prefix`, `denom`, `rpcUrl`, `grpcUrl`, and `apiUrl`; EVM chains also have `evmUrl`. The context contains plain data, so Vitest can send it between processes. Instance methods, factories, and genesis account parameters stay in global setup.
 
-Image-backed instances need Docker; binary-backed ones need their executable on `PATH`. If your CI doesn't always have the right one, gate the project or suite — for example with a vitest [workspace project](https://vitest.dev/guide/projects) that only runs integration tests when the runtime is available, or `describe.skipIf`.
+## Ports and lifecycle
 
-## Timeouts
+- Missing Cosmos ports, including the EVM port, are assigned automatically. Factories that do not support EVM ignore that field. Explicit port values are preserved; omit them when running multiple projects concurrently.
+- Automatic chain ports are held during topology construction so they cannot be allocated twice, then released immediately before startup. Another process can still claim a port during that handoff.
+- Chains start concurrently. Hermes starts only after all chains are ready, with an automatically allocated telemetry port unless one was configured.
+- A setup failure waits for outstanding chain starts and then stops every created instance, including the instance whose start failed. Teardown stops relayers before chains and attempts every stop even if one fails.
+- Each Vitest project gets its own topology. Test files within that project share chain state. In watch mode, the topology stays running across reruns until Vitest exits; it is not reset to genesis between tests or reruns.
 
-First start includes chain `init` + first block (typically 3–5s locally). Give `globalSetup`-heavy suites headroom, and pass a per-instance timeout for slow environments:
+For IBC, set distinct `parameters.chainId` values on the chains connected by Hermes and fund the relayer mnemonic in each chain's fee denom. Repeated pairs are preserved. `inject('starskiff').relayers` describes the configured chain-name pairs; it does not expose the IBC connection or channel IDs created during setup.
 
-```ts
-const instance = Instance.simd({ chainId: 'test-1' }, { timeout: 120_000 });
-```
+Custom Cosmos factories must accept object parameters and honor the standard Cosmos port fields. Source selection, accounts, chain IDs, and lifecycle options otherwise follow the selected factory's contract. Configure slow starts through each declaration's `options.timeout`.
+
+## Runtime availability
+
+Image-backed instances need Docker; binary-backed instances need their executable. Hermes needs its host binary. Global setup failures fail the test run; the adapter does not silently skip unavailable runtimes. Gate the integration project explicitly when your environment cannot run it.

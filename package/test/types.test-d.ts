@@ -17,6 +17,8 @@ import {
   type OptionalInstanceSource,
 } from '../src/index.js'
 import { expectTypeOf } from 'vitest'
+import type { TestProject } from 'vitest/node'
+import { createGlobalSetup, type StarskiffContext } from '../src/vitest.js'
 
 // CosmosInstance extra fields should be inferred
 const chain = Instance.wasmd({ chainId: 'test', prefix: 'wasm' })
@@ -274,3 +276,14 @@ const selectedDeclaration = Math.random() > 0.5
   ? { factory: Instance.marood, parameters: { image: 'registry/marood:v1' } }
   : { factory: Instance.wasmd }
 defineConfig({ chains: { selected: selectedDeclaration } })
+
+// The setup is compatible with Vitest's project and preserves configured names
+// in a consumer's ProvidedContext augmentation.
+const globalSetup = createGlobalSetup(declarativeConfig)
+const vitestSetup: (project: TestProject) => Promise<() => Promise<void>> = globalSetup
+void vitestSetup
+type ConfiguredContext = StarskiffContext<typeof declarativeConfig>
+expectTypeOf<keyof ConfiguredContext['chains']>().toEqualTypeOf<'wasm' | 'maroo'>()
+expectTypeOf<ConfiguredContext['chains']['wasm']['rpcUrl']>().toEqualTypeOf<string>()
+// @ts-expect-error Undeclared chain names are not part of the worker context.
+type MissingChainContext = ConfiguredContext['chains']['missing']
