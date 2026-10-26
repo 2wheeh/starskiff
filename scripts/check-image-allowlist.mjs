@@ -15,7 +15,7 @@ import path from 'node:path'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 // The ONLY chains we redistribute publicly. Adding one is a deliberate edit here.
-const APPROVED = new Set(['evmd'])
+const APPROVED = new Set(['evmd', 'xplad'])
 
 const FORBIDDEN = /maroo|marood/i
 

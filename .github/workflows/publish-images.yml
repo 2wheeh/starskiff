@@ -52,6 +52,8 @@ jobs:
             echo "$k=$v" >> "$GITHUB_OUTPUT"
           done
           echo "platforms=$(echo "$entry" | jq -r '.platforms | join(",")')" >> "$GITHUB_OUTPUT"
+          echo "sha256_amd64=$(echo "$entry" | jq -r '.sha256.amd64 // empty')" >> "$GITHUB_OUTPUT"
+          echo "sha256_arm64=$(echo "$entry" | jq -r '.sha256.arm64 // empty')" >> "$GITHUB_OUTPUT"
 
       # Authenticate BEFORE any registry inspection: an existing package that
       # isn't anonymously readable would otherwise look "free" and get overwritten.
@@ -98,6 +100,8 @@ jobs:
             REPO=${{ steps.img.outputs.repo }}
             REF=${{ steps.img.outputs.ref }}
             COMMIT=${{ steps.img.outputs.commit }}
+            SHA256_AMD64=${{ steps.img.outputs.sha256_amd64 }}
+            SHA256_ARM64=${{ steps.img.outputs.sha256_arm64 }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ steps.img.outputs.repo }}
             org.opencontainers.image.version=${{ steps.img.outputs.ref }}

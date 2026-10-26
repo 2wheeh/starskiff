@@ -14,16 +14,34 @@
     {
       "name": "evmd",
       "repo": "cosmos/evm",
-      "ref": "v0.7.2",
-      "commit": "ef11f63c087b4c859b1e8eddc823f7cf2113a50a",
+      "ref": "v0.7.3",
+      "commit": "c3ae9067a7eadcdea55a5192226916deb44c71c4",
       "context": "images/evmd",
       "image": "ghcr.io/2wheeh/starskiff/evmd",
-      "digest": "sha256:05780885a2ac68caef0120deae1066d49af5e5bf49180b2d99ac6060f8bdd0dd",
+      "digest": null,
       "platforms": [
         "linux/amd64",
         "linux/arm64"
       ],
       "note": "cgo-required (go-ethereum secp256k1); arm64 builds under QEMU"
+    },
+    {
+      "name": "xplad",
+      "repo": "xpladev/xpla",
+      "ref": "v1.14.0",
+      "commit": "d9fb8c4105569efcf02e754ffd08d422bde145ba",
+      "context": "images/xplad",
+      "image": "ghcr.io/2wheeh/starskiff/xplad",
+      "digest": null,
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "sha256": {
+        "amd64": "1d8819270adebc38879d40f9a03e6a0b073ce7daa691820813ca5ddab76be8aa",
+        "arm64": "7525719d4b84065d22feed3bd5a04cddb517694ab6f1667513a70be4e9898cd0"
+      },
+      "note": "official v1.14.0 release binaries; upstream image publication failed; statically linked including wasmvm"
     }
   ]
 }
