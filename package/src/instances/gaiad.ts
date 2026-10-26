@@ -5,9 +5,11 @@ import type { OptionalInstanceSource } from '../source.js'
 
 /**
  * Official Cosmos Hub image, pinned to the version running on mainnet
- * (`cosmoshub-4`). Used unless the caller opts into a binary.
+ * (`cosmoshub-4`). amd64-only: arm64 hosts must pre-pull with
+ * `docker pull --platform linux/amd64 ghcr.io/cosmos/gaia:v28.3.1`.
+ * Used unless the caller opts into a binary.
  */
-export const GAIAD_DEFAULT_IMAGE = 'ghcr.io/cosmos/gaia:v27.5.0'
+export const GAIAD_DEFAULT_IMAGE = 'ghcr.io/cosmos/gaia:v28.3.1'
 
 export type GaiadParameters = Omit<CosmosChainParameters, 'image'> & OptionalInstanceSource
 

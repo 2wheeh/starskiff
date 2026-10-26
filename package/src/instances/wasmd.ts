@@ -8,7 +8,7 @@ import type { OptionalInstanceSource } from '../source.js'
  * per-version tags, so this tracks a real version rather than a floating tag).
  * Used unless the caller opts into a binary.
  */
-export const WASMD_DEFAULT_IMAGE = 'cosmwasm/wasmd:v0.61.14'
+export const WASMD_DEFAULT_IMAGE = 'cosmwasm/wasmd:v0.70.5'
 
 export type WasmdParameters = Omit<CosmosChainParameters, 'image'> & OptionalInstanceSource
 

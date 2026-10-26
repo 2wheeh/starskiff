@@ -30,7 +30,7 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 | `Instance.dydxprotocold()` | **required** — `image` or `binary` | dYdX v4 SDK | SDK APIs and genesis fixtures |
 | `Instance.seid()` | image `ghcr.io/sei-protocol/sei` | Sei SDK + **EVM** + CosmWasm | Sei testing (local eth 713714) |
 | `Instance.thornode()` | image `registry.gitlab.com/thorchain/thornode` (amd64-only) | THORChain SDK | Single-validator THORChain testing |
-| `Instance.xplad()`  | image `ghcr.io/xpladev/xpla`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
+| `Instance.xplad()`  | image `ghcr.io/2wheeh/starskiff/xplad`           | Cosmos SDK + **EVM** + CosmWasm                 | XPLA testing, EVM JSON-RPC     |
 | `Instance.mantra()` | image `ghcr.io/mantra-chain/mantrachain` | Cosmos SDK + **EVM** + CosmWasm               | MANTRA testing (eth 5888)      |
 | `Instance.xrplevm()` | image `peersyst/exrp` (amd64-only)    | Cosmos SDK + **EVM** (cosmos/evm)               | XRPL EVM testing (eth 1440000) |
 | `Instance.evmd()`   | image `ghcr.io/2wheeh/starskiff/evmd`  | Cosmos SDK + **EVM** (cosmos/evm reference)     | Canonical cosmos-evm precompiles |
@@ -39,7 +39,7 @@ Inspired by [prool](https://github.com/wevm/prool) (test instances for Ethereum)
 
 Every instance is **image-first**: where a usable, version-pinned image exists it's the default (Docker required); pass `binary` to run a local executable, or `image` to bind your own. The two overrides are mutually exclusive in TypeScript and at runtime. Where none exists (`cronosd`, `dydxprotocold`, and the private `marood` node) exactly one source is **required** by its TypeScript signature, with runtime validation retained for JavaScript callers. `hermes` is a relayer run as a host binary, not a chain node. See the docs [container runtime guide](./../docs/src/pages/docs/guides/docker.mdx).
 
-> `evmd`'s default image is built from cosmos/evm source by the `publish-images` workflow and pinned by multi-arch manifest **digest** — the default always resolves to the exact published artifact.
+> The `publish-images` workflow builds `evmd` from cosmos/evm source and packages XPLA's official v1.14.0 release binaries for `xplad` (the upstream final-release image build failed). Both defaults are pinned by multi-arch manifest **digest**.
 
 ## Install
 

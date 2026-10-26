@@ -2,7 +2,9 @@
 
 `Instance.wasmd()` boots a [wasmd](https://github.com/CosmWasm/wasmd) node: Cosmos SDK + IBC + CosmWasm. It's a superset of `simd` — the right pick when your tests touch contracts or IBC.
 
-Container-first on the official CosmWasm image (`cosmwasm/wasmd:v0.61.14`, exact version tags) — just Docker, no build. Pass `binary` to run a local executable, or `image` to bind your own.
+Container-first on the official CosmWasm image (`cosmwasm/wasmd:v0.70.5`, exact version tags) — just Docker, no build. Pass `binary` to run a local executable, or `image` to bind your own.
+
+The official image is amd64-only. On arm64 hosts, pre-pull with `docker pull --platform linux/amd64 cosmwasm/wasmd:v0.70.5` to use emulation, or pass a native `binary`.
 
 ## Usage
 
@@ -39,7 +41,7 @@ const result = await client.execute(address, contractAddress, executeMsg, 'auto'
 
 | Parameter | Type     | Default                                        | Description                              |
 | --------- | -------- | ---------------------------------------------- | ---------------------------------------- |
-| `image`   | `string` | `WASMD_DEFAULT_IMAGE` (`cosmwasm/wasmd:v0.61.14`) | Container image                       |
+| `image`   | `string` | `WASMD_DEFAULT_IMAGE` (`cosmwasm/wasmd:v0.70.5`) | Container image                       |
 | `binary`  | `string` | `"wasmd"`                                      | Local binary (opts out of the container) |
 
 ## IBC

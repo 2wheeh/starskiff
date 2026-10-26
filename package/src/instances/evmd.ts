@@ -36,10 +36,10 @@ export const EVMD_DEFAULT_PRECOMPILES: readonly string[] = [
  * workflow succeeds it is pinned to the multi-arch manifest **digest**
  * (immutable: a re-pushed tag can't change what this resolves to). CI asserts
  * it equals `config/images.json`. This image corresponds to upstream
- * cosmos/evm v0.7.2.
+ * cosmos/evm v0.7.3.
  */
 export const EVMD_DEFAULT_IMAGE =
-  'ghcr.io/2wheeh/starskiff/evmd@sha256:05780885a2ac68caef0120deae1066d49af5e5bf49180b2d99ac6060f8bdd0dd'
+  'ghcr.io/2wheeh/starskiff/evmd:v0.7.3'
 
 export type EvmdParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after evmd's defaults. */

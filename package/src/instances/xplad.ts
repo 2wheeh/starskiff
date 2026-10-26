@@ -5,29 +5,28 @@ import type { OptionalInstanceSource } from '../source.js'
 
 /**
  * Default active static precompiles for xplad.
- * Mirrors `@xpla/evm` `PRECOMPILE_ADDRESSES` (v1.9.0; unchanged in v1.10.0 —
- * the xpladev/evm diff between the two touches only mempool/server), sorted
- * ascending as required by cosmos-evm genesis validation. Frozen by chain
- * consensus.
+ * Mirrors XPLA v1.14.0 mainnet's active_static_precompiles (checked
+ * 2026-10-26), sorted ascending as required by cosmos-evm genesis validation.
  */
 export const XPLA_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x0000000000000000000000000000000000000100', // P256
   '0x0000000000000000000000000000000000000400', // Bech32
   '0x0000000000000000000000000000000000000800', // Staking
   '0x0000000000000000000000000000000000000801', // Distribution
+  '0x0000000000000000000000000000000000000802', // ICS20
   '0x0000000000000000000000000000000000000805', // Gov
   '0x0000000000000000000000000000000000000806', // Slashing
   '0x1000000000000000000000000000000000000001', // Bank
   '0x1000000000000000000000000000000000000004', // Wasm
   '0x1000000000000000000000000000000000000005', // Auth
-  '0x1000000000000000000000000000000000000044', // WasmDelegate
 ]
 
 /**
- * Official XPLA image, pinned to the version running on XPLA mainnet
- * (`dimension_1-1`). Used unless the caller opts into a binary.
+ * Starskiff image containing the official XPLA v1.14.0 release binaries,
+ * matching mainnet (`dimension_37-1`). Upstream's final-release image build
+ * failed; config/images.json pins the release commit and archive checksums.
  */
-export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.11.4'
+export const XPLA_DEFAULT_IMAGE = 'ghcr.io/2wheeh/starskiff/xplad@sha256:2516d62c1ad77e2790f4cd666bd3e0d7b14778807484142dd18123d239e579f6'
 
 export type XpladParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after xplad's defaults. */
@@ -41,7 +40,7 @@ export type XpladParameters = Omit<CosmosEvmChainParameters, 'image'> & Optional
  * The native denom uses 18 decimals (e.g. axpla), which requires
  * larger validator stake/balance than the cosmosBase defaults.
  *
- * XPLA publishes an official image, so this instance is container-first: it
+ * This instance is container-first: it
  * runs {@link XPLA_DEFAULT_IMAGE} out of the box — no Go toolchain, no manual
  * build, and the node is the exact artifact the network ships. Docker must be
  * running. The node still runs as a plain child process under starskiff's own

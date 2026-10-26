@@ -32,7 +32,7 @@
       "commit": "d9fb8c4105569efcf02e754ffd08d422bde145ba",
       "context": "images/xplad",
       "image": "ghcr.io/2wheeh/starskiff/xplad",
-      "digest": null,
+      "digest": "sha256:2516d62c1ad77e2790f4cd666bd3e0d7b14778807484142dd18123d239e579f6",
       "platforms": [
         "linux/amd64",
         "linux/arm64"
