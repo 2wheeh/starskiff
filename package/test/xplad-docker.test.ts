@@ -3,7 +3,7 @@ import { createPublicClient, http } from 'viem';
 import { Instance, findFreePorts, XPLA_DEFAULT_IMAGE, XPLA_DEFAULT_PRECOMPILES } from '../src/index.js';
 
 /**
- * Boots xplad from the image containing official release binaries — the default runtime for
+ * Boots xplad from its official container image — the default runtime for
  * chains that publish one. Verifies the container path end to end: the chain
  * CLI runs inside disposable containers against a host-mounted home dir,
  * genesis is patched host-side, and the node's published ports serve the same
@@ -31,8 +31,8 @@ afterAll(async () => {
 });
 
 describe('xplad (container runtime)', () => {
-  it('defaults to the starskiff image of the official XPLA release', () => {
-    expect(XPLA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/2wheeh\/starskiff\/xplad[:@]/);
+  it('defaults to the official XPLA image', () => {
+    expect(XPLA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/xpladev\/xpla:/);
   });
 
   it('produces blocks and serves Cosmos RPC on the published port', async () => {

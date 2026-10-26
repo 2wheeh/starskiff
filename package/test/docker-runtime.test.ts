@@ -168,8 +168,8 @@ describe('container-first default images', () => {
     expect(WASMD_DEFAULT_IMAGE).toBe('cosmwasm/wasmd:v0.70.5')
   })
 
-  it('xplad pins the starskiff image of official XPLA binaries', () => {
-    expect(XPLA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/2wheeh\/starskiff\/xplad[:@]/)
+  it('xplad pins the official XPLA image', () => {
+    expect(XPLA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/xpladev\/xpla:v/)
   })
 
   it('evmd pins the image starskiff publishes', () => {

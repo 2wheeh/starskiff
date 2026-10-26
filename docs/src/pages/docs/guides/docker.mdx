@@ -5,7 +5,7 @@ Chains that publish an official image are **container-first**: the instance runs
 ```ts
 import { Instance } from 'starskiff';
 
-// Boots starskiff's image containing the official XPLA v1.14.0 binary
+// Boots ghcr.io/xpladev/xpla — the image XPLA publishes
 const instance = Instance.xplad({
   accounts: [{ mnemonic: '...', coins: '1000000000000000000000axpla' }],
 });
@@ -55,29 +55,29 @@ Instance.marood({ image: 'my-registry/marood:private' }); // or { binary: 'maroo
 
 An instance is container-first when it can source a node from an image. That image comes from one of two places:
 
-1. **The chain's own official image**, when it exists and tracks the live network — e.g. `gaiad` runs `ghcr.io/cosmos/gaia`.
-2. **An image starskiff builds and publishes**, when the chain ships none (or a stale one) — e.g. `evmd` runs `ghcr.io/2wheeh/starskiff/evmd`, built from `cosmos/evm` source because cosmos/evm publishes no image. `xplad` packages checksum-verified official XPLA v1.14.0 binaries because the upstream final-release image build failed.
+1. **The chain's own official image**, when it exists and tracks the live network — e.g. `xplad` runs `ghcr.io/xpladev/xpla`.
+2. **An image starskiff builds and publishes**, when the chain ships none (or a stale one) — e.g. `evmd` runs `ghcr.io/2wheeh/starskiff/evmd`, built from `cosmos/evm` source because cosmos/evm publishes no image.
 
 | Instance                       | Default runtime | Source                                                  |
 | ------------------------------ | --------------- | ------------------------------------------------------- |
 | [`simd`](/docs/instances/simd) | Container       | Official `ghcr.io/cosmos/simapp` image (minor-line pin) |
 | `wasmd`                        | Container       | Official `cosmwasm/wasmd` image, exact version tags     |
-| `xplad`                        | Container       | **starskiff-published** image of official XPLA v1.14.0 binaries |
+| `xplad`                        | Container       | Official `ghcr.io/xpladev/xpla` image, tracks mainnet   |
 | `evmd`                         | Container       | **starskiff-published** image (cosmos/evm ships none)   |
 | [`gaiad`](/docs/chains)        | Container       | Official `ghcr.io/cosmos/gaia` image, tracks mainnet    |
 | [`mantra`](/docs/chains)       | Container       | Official `ghcr.io/mantra-chain/mantrachain` image       |
 | [`xrplevm`](/docs/chains)      | Container       | Official `peersyst/exrp` image (amd64-only)             |
 | `hermes`                       | Binary          | IBC relayer, run as a host process                      |
 
-`hermes` is the one deliberate binary default — a relayer that drives its own CLI and config on the host, not a chain node the container runtime boots; starskiff's own CI provisions it via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json). [`marood`](/docs/chains) has **no default at all** — its node source is private — so it requires an injected `image` or `binary` and is never in that manifest. starskiff doesn't publish an image for every missing/stale upstream — only the deliberate allowlist in `config/images.json` (`evmd` and `xplad`).
+`hermes` is the one deliberate binary default — a relayer that drives its own CLI and config on the host, not a chain node the container runtime boots; starskiff's own CI provisions it via [`config/binaries.json`](https://github.com/2wheeh/starskiff/blob/main/config/binaries.json). [`marood`](/docs/chains) has **no default at all** — its node source is private — so it requires an injected `image` or `binary` and is never in that manifest. starskiff doesn't publish an image for every missing/stale upstream — only the deliberate allowlist in `config/images.json` (currently just evmd).
 
 ### Images we publish
 
-For chains with no usable upstream image, starskiff builds a multi-arch (amd64 + arm64) image from source or checksum-verified official binaries and pushes it to its **public** GHCR namespace, `ghcr.io/2wheeh/starskiff/<chain>`. Public GHCR packages are free to store and pull, so this stays within the free tier.
+For chains with no usable upstream image, starskiff builds a multi-arch (amd64 + arm64) image from source and pushes it to its **public** GHCR namespace, `ghcr.io/2wheeh/starskiff/<chain>`. Public GHCR packages are free to store and pull, so this stays within the free tier.
 
 The list of what we publish is an explicit allowlist in [`config/images.json`](https://github.com/2wheeh/starskiff/blob/main/config/images.json) — the single source of truth for both the publish workflow and the instance's default image. A dedicated `publish-images` workflow builds each entry; targets are never derived from the instance list, so a chain is only ever redistributed by a deliberate edit.
 
-Building a chain image ourselves means we redistribute someone else's node, so images are pinned to an exact upstream ref + commit (plus archive checksums for release binaries) and (after first publish) to the multi-arch manifest **digest**, with build provenance and an SBOM attached.
+Building a chain image ourselves means we redistribute someone else's node, so images are pinned to an exact upstream ref + commit and (after first publish) to the multi-arch manifest **digest**, with build provenance and an SBOM attached.
 
 ## CI
 
