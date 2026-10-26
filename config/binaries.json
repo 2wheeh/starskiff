@@ -13,24 +13,24 @@
     {
       "name": "cronosd",
       "repo": "crypto-org-chain/cronos",
-      "ref": "v1.7.8",
+      "ref": "v1.8.0",
       "reason": "no usable official public node image; the instance requires an injected image or binary",
       "buildType": "prebuilt",
-      "asset": "cronos_1.7.8_Linux_x86_64.tar.gz",
-      "sha256": "3840147724054449e3b8dd9a3829b88979da628686720dc16a9f39a5fbc911d4",
+      "asset": "cronos_1.8.0_Linux_x86_64.tar.gz",
+      "sha256": "0b7290a0a4c41e69d76b0c292fef2104a44250128a38d06e56a2c06a1e695550",
       "extract": "tar",
       "binaryPath": "bin/cronosd"
     },
     {
       "name": "dydxprotocold",
       "repo": "dydxprotocol/v4-chain",
-      "ref": "protocol/v9.6.4",
+      "ref": "protocol/v9.8.1",
       "reason": "no usable official public node image; the instance requires an injected image or binary",
       "buildType": "prebuilt",
-      "asset": "dydxprotocold-v9.6.4-linux-amd64.tar.gz",
-      "sha256": "4c1d38640a424c39aadbe238e4b79ca42d80f8101e16b32c597d8c441d99d7fa",
+      "asset": "dydxprotocold-v9.8.1-linux-amd64.tar.gz",
+      "sha256": "bd76bafaaa18fdf6db9141efec6c589e41da4838f6848eb2494606ade750e448",
       "extract": "tar",
-      "binaryPath": "build/dydxprotocold-v9.6.4-linux-amd64"
+      "binaryPath": "build/dydxprotocold-v9.8.1-linux-amd64"
     },
     {
       "name": "hermes",

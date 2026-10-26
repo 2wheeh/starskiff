@@ -7,7 +7,7 @@ export type CronosdParameters = Omit<CosmosEvmChainParameters, 'image' | 'active
   patchGenesis?: (genesis: Genesis) => Genesis
 }
 
-/** Cronos EVM. Supply a Cronos v1.7.8 binary or an image containing cronosd. */
+/** Cronos EVM. Supply a Cronos v1.8.0 binary or an image containing cronosd. */
 export const cronosd = Instance.define((parameters: CronosdParameters) => {
   const image = resolveInstanceImage('cronosd', parameters ?? {})
   const { binary = 'cronosd', denom = 'basecro', patchGenesis: userPatch, relayerHints, ...rest } = parameters

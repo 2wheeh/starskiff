@@ -4,6 +4,8 @@
 
 Add `Instance.provenanced`, `Instance.cronosd`, `Instance.dydxprotocold`, `Instance.seid`, and `Instance.thornode` with native account funding and managed node lifecycles. Provenance, Sei, and THORChain default to pinned official images; Cronos and dYdX require an explicit source. Cronos and Sei expose `evmUrl`.
 
+The default images run Provenance v1.31.0, Sei v6.7.2, and THORChain v3.21.0. Cronos v1.8.0 and dYdX v9.8.1 are supported via upstream binaries.
+
 ```ts
 import { Instance } from 'starskiff'
 

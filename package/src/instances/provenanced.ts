@@ -3,9 +3,9 @@ import { cosmosBase, type CosmosChainParameters, type Genesis } from '../cosmos.
 import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
-/** Official Provenance v1.30.0 image (linux/amd64 and linux/arm64). */
+/** Official Provenance v1.31.0 image (linux/amd64 and linux/arm64). */
 export const PROVENANCED_DEFAULT_IMAGE =
-  'provenanceio/provenance@sha256:62a3c3c098153c2410892da604d089bca16654ff680a5cf0b8385949d0956564'
+  'provenanceio/provenance@sha256:c8d402757aa8e63ae0571da30ab422f2cd9eda4dd41878415cc997a4cbf709f0'
 
 export type ProvenancedParameters = Omit<CosmosChainParameters, 'image'> & OptionalInstanceSource & {
   patchGenesis?: (genesis: Genesis) => Genesis

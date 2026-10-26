@@ -8,7 +8,7 @@ export type DydxprotocoldParameters = Omit<CosmosChainParameters, 'image'> & Ins
 }
 
 /**
- * dYdX v4 consensus and SDK APIs. Supply a v9.6.4 binary or image.
+ * dYdX v4 consensus and SDK APIs. Supply a v9.8.1 binary or image.
  * External price, bridge, liquidation and oracle daemons are disabled.
  */
 export const dydxprotocold = Instance.define((parameters: DydxprotocoldParameters) => {

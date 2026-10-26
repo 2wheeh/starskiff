@@ -4,9 +4,9 @@ import { cosmosBase, type CosmosChainParameters, type Genesis } from '../cosmos.
 import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
-/** Official THORChain mainnet v3.20.1 image (linux/amd64; arm64 needs emulation). */
+/** Official THORChain mainnet v3.21.0 image (linux/amd64; arm64 needs emulation). */
 export const THORNODE_DEFAULT_IMAGE =
-  'registry.gitlab.com/thorchain/thornode@sha256:b2c4d6c3a91d3eff5620874f6a4c33a112155a6f6e141fd26b1a3a1c8430e2c5'
+  'registry.gitlab.com/thorchain/thornode@sha256:7e0e8935ffa72c0557d4289d2a9024d803aeaa6fed91259a0550018cca41ccf4'
 
 export type ThornodeParameters = Omit<CosmosChainParameters, 'image' | 'extraValidators' | 'validatorStake' | 'denom' | 'prefix'> & OptionalInstanceSource & {
   patchGenesis?: (genesis: Genesis) => Genesis

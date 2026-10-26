@@ -88,7 +88,7 @@ for (const chain of chains) {
         expect(response.ok).toBe(true)
         const node = await response.json() as { status: string; version: string; total_bond: string }
         expect(node.status).toBe('Active')
-        expect(node.version).toBe('3.20.1')
+        expect(node.version).toBe('3.21.0')
         expect(node.total_bond).toBe('0')
       })
     }
