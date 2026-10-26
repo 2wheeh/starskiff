@@ -39,7 +39,7 @@ export const EVMD_DEFAULT_PRECOMPILES: readonly string[] = [
  * cosmos/evm v0.7.3.
  */
 export const EVMD_DEFAULT_IMAGE =
-  'ghcr.io/2wheeh/starskiff/evmd:v0.7.3'
+  'ghcr.io/2wheeh/starskiff/evmd@sha256:41f4d25ccf44aee828f3a404391c96e807df66a1d5d269ce581d56f8cf9a921f'
 
 export type EvmdParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after evmd's defaults. */

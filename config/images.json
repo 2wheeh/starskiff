@@ -18,7 +18,7 @@
       "commit": "c3ae9067a7eadcdea55a5192226916deb44c71c4",
       "context": "images/evmd",
       "image": "ghcr.io/2wheeh/starskiff/evmd",
-      "digest": null,
+      "digest": "sha256:41f4d25ccf44aee828f3a404391c96e807df66a1d5d269ce581d56f8cf9a921f",
       "platforms": [
         "linux/amd64",
         "linux/arm64"
