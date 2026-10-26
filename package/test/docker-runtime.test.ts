@@ -56,6 +56,25 @@ describe('resolveInstanceImage (default artifact policy)', () => {
 // Instances without a usable upstream image must fail fast at construction —
 // no implicit binary fallback.
 describe('injection-required instances', () => {
+  it('requires explicit sources for Cronos and dYdX, including JavaScript callers', () => {
+    // @ts-expect-error A source is required.
+    expect(() => Instance.cronosd()).toThrow(/cronosd has no default image/)
+    // @ts-expect-error A source is required.
+    expect(() => Instance.dydxprotocold({})).toThrow(/dydxprotocold has no default image/)
+    expect(() => Instance.cronosd({ image: 'cronos:local', binary: 'cronosd' } as never)).toThrow(/not both/)
+    expect(() => Instance.dydxprotocold({ binary: '' })).toThrow(/non-empty/)
+  })
+
+  it('rejects Sei IDs that load public-network genesis', () => {
+    for (const chainId of ['pacific-1', 'atlantic-2', 'arctic-1']) {
+      expect(() => Instance.seid({ chainId })).toThrow(/embedded|embeds/)
+    }
+  })
+
+  it('rejects extra validators for THORChain custom registration', () => {
+    // @ts-expect-error THORChain does not use staking gentxs.
+    expect(() => Instance.thornode({ extraValidators: 1 })).toThrow(/extraValidators/)
+  })
   it('marood throws without an injected image or binary', () => {
     // @ts-expect-error Runtime validation remains for JavaScript callers.
     expect(() => Instance.marood()).toThrow(/no default image/)

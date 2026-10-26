@@ -10,6 +10,11 @@ describe('smoke test (built output)', () => {
       expect(Instance.wasmd).toBeTypeOf('function')
       expect(Instance.gaiad).toBeTypeOf('function')
       expect(Instance.xplad).toBeTypeOf('function')
+      expect(Instance.provenanced).toBeTypeOf('function')
+      expect(Instance.cronosd).toBeTypeOf('function')
+      expect(Instance.dydxprotocold).toBeTypeOf('function')
+      expect(Instance.seid).toBeTypeOf('function')
+      expect(Instance.thornode).toBeTypeOf('function')
     })
 
     it('exports cosmosBase', () => {

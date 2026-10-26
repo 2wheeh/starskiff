@@ -75,8 +75,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Host tools are fetched directly from their upstream releases. Chain
-      # nodes use images instead; config/images.json owns images we publish.
+      # Fetch tools and chains without usable public images from upstream.
+      # config/images.json owns only images we publish.
       - name: Download prebuilt binaries
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,18 +93,22 @@ jobs:
             asset=$(jq -r '.asset' <<<"$row")
             checksum=$(jq -er '.sha256' <<<"$row")
             extract=$(jq -r '.extract // "none"' <<<"$row")  # null -> "none", not literal "null"
+            binary_path=$(jq -r '.binaryPath // .name' <<<"$row")
+            binary_dir="/tmp/starskiff-binaries/${name}"
+            mkdir -p "$binary_dir"
 
             gh release download "$ref" --repo "$repo" --pattern "$asset" --dir /tmp
             echo "${checksum}  /tmp/${asset}" | sha256sum --check --strict
 
             if [ "$extract" = "tar" ]; then
-              tar -xzf "/tmp/${asset}" -C /tmp
+              tar -xzf "/tmp/${asset}" -C "$binary_dir"
             else
-              mv "/tmp/${asset}" "/tmp/${name}"
+              mv "/tmp/${asset}" "${binary_dir}/${name}"
             fi
 
-            mv "/tmp/${name}" "/usr/local/bin/${name}"
-            chmod +x "/usr/local/bin/${name}"
+            # Keep each upstream archive layout intact (including nested binaries).
+            chmod +x "${binary_dir}/${binary_path}"
+            ln -s "${binary_dir}/${binary_path}" "/usr/local/bin/${name}"
           done
 
       - name: Integration tests
@@ -116,7 +120,7 @@ jobs:
       # extra-validators uses the simd image. marood (private binary) stays
       # excluded.
       - name: Feature tests (container runtime + multi-validator)
-        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/evmd-docker.test.ts test/xrplevm-docker.test.ts test/mantra-docker.test.ts test/extra-validators.test.ts
+        run: pnpm --filter starskiff exec vitest run test/xplad-docker.test.ts test/evmd-docker.test.ts test/xrplevm-docker.test.ts test/mantra-docker.test.ts test/extra-validators.test.ts test/cosmos-chains.test.ts
 
   release:
     name: Release

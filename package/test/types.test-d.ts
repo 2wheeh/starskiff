@@ -35,6 +35,11 @@ expectTypeOf(chain[Symbol.asyncDispose]).toBeFunction()
 
 // simd too
 const simdChain = Instance.simd({ chainId: 'test' })
+expectTypeOf(Instance.provenanced().apiUrl).toBeString()
+expectTypeOf(Instance.seid().evmUrl).toBeString()
+expectTypeOf(Instance.thornode().rpcUrl).toBeString()
+expectTypeOf(Instance.cronosd({ binary: 'cronosd' }).evmUrl).toBeString()
+expectTypeOf(Instance.dydxprotocold({ binary: 'dydxprotocold' }).apiUrl).toBeString()
 expectTypeOf(simdChain.chainId).toBeString()
 
 const xrplevmChain = Instance.xrplevm({ chainId: 'custom-xrplevm', evmChainId: 1440001 })
@@ -44,7 +49,7 @@ expectTypeOf(simdChain.grpcPort).toBeNumber()
 expectTypeOf<CosmosEvmBaseParameters['evmChainId']>().toEqualTypeOf<number | undefined>()
 expectTypeOf<'evmChainId' extends keyof CosmosEvmChainParameters ? true : false>().toEqualTypeOf<false>()
 expectTypeOf<'evmChainId' extends keyof MaroodParameters ? true : false>().toEqualTypeOf<false>()
-expectTypeOf<CosmosBaseParameters['runtime']>().toEqualTypeOf<CosmosRuntimeOptions | undefined>()
+expectTypeOf<CosmosBaseParameters['runtime']>().toEqualTypeOf<CosmosRuntimeOptions | ((homeDir: string) => CosmosRuntimeOptions) | undefined>()
 expectTypeOf<CosmosEvmBaseParameters['runtime']>().toEqualTypeOf<CosmosRuntimeOptions | undefined>()
 expectTypeOf<'runtime' extends keyof MaroodParameters ? true : false>().toEqualTypeOf<false>()
 

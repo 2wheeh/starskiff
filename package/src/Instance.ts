@@ -10,6 +10,11 @@ export { xrplevm } from './instances/xrplevm.js'
 export { evmd } from './instances/evmd.js'
 export { marood } from './instances/marood.js'
 export { hermes } from './instances/hermes.js'
+export { provenanced } from './instances/provenanced.js'
+export { cronosd } from './instances/cronosd.js'
+export { dydxprotocold } from './instances/dydxprotocold.js'
+export { seid } from './instances/seid.js'
+export { thornode } from './instances/thornode.js'
 
 export type InstanceStatus =
   | 'idle'
