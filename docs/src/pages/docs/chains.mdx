@@ -2,7 +2,7 @@
 
 Beyond the [test nodes](/docs/instances), starskiff ships instance definitions for real networks' nodes. Lifecycle and parameters are identical — the only difference is where the node comes from, per the [image-first rule](/docs/guides/docker): an official image where a usable one exists, a starskiff-published image for selected chains, or an explicitly injected source.
 
-- **`Instance.xplad()`** — [XPLA](https://xpla.io). Runs the official `ghcr.io/xpladev/xpla:v1.14.0` image from XPLA’s GHCR registry. Its precompile defaults match mainnet, including ICS20. EVM + CosmWasm; exposes `evmPort` / `evmUrl`.
+- **`Instance.xplad()`** — [XPLA](https://xpla.io). Runs the official `ghcr.io/xpladev/xpla:v1.11.4` image, the latest published final tag. Official v1.14.x images await upstream publication; pass a `binary` or custom `image` to test v1.14 in the meantime. EVM + CosmWasm; exposes `evmPort` / `evmUrl`.
 - **`Instance.gaiad()`** — [Cosmos Hub](https://github.com/cosmos/gaia). Runs the official `ghcr.io/cosmos/gaia:v28.3.1` image, matching the current mainnet release. The image is amd64-only; arm64 Docker hosts need emulation. Useful as an IBC counterparty chain.
 - **`Instance.provenanced()`** — [Provenance](https://github.com/provenance-io/provenance), v1.31.0. Defaults to the official multi-architecture image. Native denom `nhash`, prefix `pb`, coin type 505.
 - **`Instance.cronosd({ binary: 'cronosd' })`** — [Cronos](https://github.com/crypto-org-chain/cronos), tested with v1.8.0. Requires a binary or an image containing `cronosd`. Exposes Cosmos APIs and `evmUrl`; defaults to EVM chain ID 25, denom `basecro`, and Ethermint account derivation (coin type 60).
@@ -14,7 +14,7 @@ Beyond the [test nodes](/docs/instances), starskiff ships instance definitions f
 - **`Instance.marood()`** — maroo. Private node source, so no default image: inject your own `binary`, or a private `image` where your CI allows it. `network: 'mainnet' | 'testnet'` presets select chain id + denoms; `testnet` matches viem's `marooTestnet`. The maroo module params (agent/eas/pcl/okrw) are seeded at genesis, and the default active set includes the v0.8 Privacy precompile; pass `policyAdmin` / `minterAddress` to claim the admin-gated paths.
 
 ```ts
-Instance.xplad(); // official XPLA GHCR image
+Instance.xplad(); // official image out of the box
 Instance.gaiad(); // official image out of the box
 Instance.provenanced();
 Instance.seid();

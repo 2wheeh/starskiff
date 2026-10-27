@@ -5,27 +5,30 @@ import type { OptionalInstanceSource } from '../source.js'
 
 /**
  * Default active static precompiles for xplad.
- * Mirrors XPLA v1.14.0 mainnet's active_static_precompiles (checked
- * 2026-10-26), sorted ascending as required by cosmos-evm genesis validation.
+ * Mirrors `@xpla/evm` `PRECOMPILE_ADDRESSES` (v1.9.0; unchanged in v1.10.0 —
+ * the xpladev/evm diff between the two touches only mempool/server), sorted
+ * ascending as required by cosmos-evm genesis validation. Frozen by chain
+ * consensus.
  */
 export const XPLA_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x0000000000000000000000000000000000000100', // P256
   '0x0000000000000000000000000000000000000400', // Bech32
   '0x0000000000000000000000000000000000000800', // Staking
   '0x0000000000000000000000000000000000000801', // Distribution
-  '0x0000000000000000000000000000000000000802', // ICS20
   '0x0000000000000000000000000000000000000805', // Gov
   '0x0000000000000000000000000000000000000806', // Slashing
   '0x1000000000000000000000000000000000000001', // Bank
   '0x1000000000000000000000000000000000000004', // Wasm
   '0x1000000000000000000000000000000000000005', // Auth
+  '0x1000000000000000000000000000000000000044', // WasmDelegate
 ]
 
 /**
- * Official XPLA v1.14.0 image from the chain's GHCR registry, matching
- * mainnet (`dimension_37-1`). Used unless the caller opts into a binary.
+ * Official XPLA image, pinned to the latest published final GHCR tag.
+ * v1.14.x images await upstream publication. Used unless the caller opts
+ * into a binary.
  */
-export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.14.0'
+export const XPLA_DEFAULT_IMAGE = 'ghcr.io/xpladev/xpla:v1.11.4'
 
 export type XpladParameters = Omit<CosmosEvmChainParameters, 'image'> & OptionalInstanceSource & {
   /** Chain-specific genesis patch, chained after xplad's defaults. */

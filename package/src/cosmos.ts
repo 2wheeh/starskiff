@@ -477,7 +477,7 @@ export function cosmosBase(parameters: CosmosBaseParameters) {
           ...(minimumGasPrices === undefined ? {} : { 'minimum-gas-prices': minimumGasPrices }),
           ...extraAppToml,
         }, binary, {
-          // Some chains (e.g. XPLA v1.14) no longer expose this SDK setting.
+          // Some chains (e.g. XPLA) omit this SDK setting.
           'minimum-gas-prices': `0${denom}`,
           // Newer SDKs serve gRPC-Web on api.address; older ones have a separate listener.
           'grpc-web.address': `0.0.0.0:${grpcWebPort}`,
