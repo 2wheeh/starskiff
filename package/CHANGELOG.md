@@ -1,5 +1,41 @@
 # starskiff
 
+## 0.8.0
+
+### Minor Changes
+
+- [#40](https://github.com/2wheeh/starskiff/pull/40) [`988315c`](https://github.com/2wheeh/starskiff/commit/988315cd67a099955d5b280e3aed8fd8af0e8a66) Thanks [@2wheeh](https://github.com/2wheeh)! - Add `Instance.provenanced`, `Instance.cronosd`, `Instance.dydxprotocold`, `Instance.seid`, and `Instance.thornode` with native account funding and managed node lifecycles. Provenance, Sei, and THORChain default to pinned official images; Cronos and dYdX require an explicit source. Cronos and Sei expose `evmUrl`.
+
+  The default images run Provenance v1.31.0, Sei v6.7.2, and THORChain v3.21.0. Cronos v1.8.0 and dYdX v9.8.1 are supported via upstream binaries.
+
+  ```ts
+  import { Instance } from "starskiff";
+
+  const chain = Instance.provenanced();
+  await chain.start();
+  // Use chain.rpcUrl and chain.apiUrl in your tests.
+  await chain.stop();
+
+  Instance.cronosd({ binary: "/path/to/cronos/bin/cronosd" });
+  Instance.dydxprotocold({ binary: "/path/to/dydxprotocold" });
+  Instance.seid(); // local EVM chain ID 713714
+  Instance.thornode(); // amd64 image; single validator, no Bifrost
+  ```
+
+  dYdX runs with external daemons disabled. Sei rejects public-network chain IDs that load embedded genesis. THORChain does not provision external chains or vault signing.
+
+  Custom `cosmosBase` definitions can select `genesisCommand`, replace gentxs with `setupValidators`, and derive `runtime` or `extraStartArgs` from the runtime's temporary home path. `cosmosEvmBase` accepts `extraAppToml` overrides.
+
+### Patch Changes
+
+- [#38](https://github.com/2wheeh/starskiff/pull/38) [`da04abc`](https://github.com/2wheeh/starskiff/commit/da04abcdf0af24933686ce42d9570411eab51b41) Thanks [@2wheeh](https://github.com/2wheeh)! - Update the `Instance.mantra()` default image to v8.7.0-pre.1, the version running on MANTRA mainnet, and pin its multi-arch manifest digest.
+
+- [#44](https://github.com/2wheeh/starskiff/pull/44) [`1d88d53`](https://github.com/2wheeh/starskiff/commit/1d88d53e271e64ceff40d3645c96af2e887a37e9) Thanks [@2wheeh](https://github.com/2wheeh)! - Update default images to Gaia v28.3.1, MANTRA v8.7.0-pre.1, XRPL EVM v11.2.0, cosmos/evm v0.7.3, simapp v0.55, and wasmd v0.70.5.
+
+  Avoid spurious minimum-gas-price configuration warnings for chain templates that omit the setting; unsupported explicit overrides still warn.
+
+- [#44](https://github.com/2wheeh/starskiff/pull/44) [`1d88d53`](https://github.com/2wheeh/starskiff/commit/1d88d53e271e64ceff40d3645c96af2e887a37e9) Thanks [@2wheeh](https://github.com/2wheeh)! - Update `Instance.xplad()` to the published official `ghcr.io/xpladev/xpla:v1.14.0-rc4` image and align its default precompiles with mainnet, enabling ICS20 and removing WasmDelegate.
+
 ## 0.7.1
 
 ### Patch Changes
