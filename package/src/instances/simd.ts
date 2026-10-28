@@ -4,12 +4,12 @@ import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
 /**
- * Official Cosmos SDK simapp image. Pinned to a MINOR line (`v0.53`), not a
+ * Official Cosmos SDK simapp image. Pinned to a MINOR line (`v0.55`), not a
  * patch — `ghcr.io/cosmos/simapp` only tags minor lines, so this follows the
  * latest patch of that line rather than an exact version. Used unless the
  * caller opts into a binary.
  */
-export const SIMD_DEFAULT_IMAGE = 'ghcr.io/cosmos/simapp:v0.53'
+export const SIMD_DEFAULT_IMAGE = 'ghcr.io/cosmos/simapp:v0.55'
 
 export type SimdParameters = Omit<CosmosChainParameters, 'image'> & OptionalInstanceSource
 
@@ -18,7 +18,7 @@ export type SimdParameters = Omit<CosmosChainParameters, 'image'> & OptionalInst
  *
  * Container-first on the official simapp image ({@link SIMD_DEFAULT_IMAGE}) —
  * no Go toolchain, just Docker. Note the image only pins a minor line, so it
- * tracks the latest patch of `v0.53`. Pass `binary` to run a local executable
+ * tracks the latest patch of `v0.55`. Pass `binary` to run a local executable
  * (e.g. an exact-version build), or `image` to bind your own.
  *
  * @example

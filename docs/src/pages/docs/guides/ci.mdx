@@ -41,12 +41,12 @@ Simplest to set up and always reproducible, but each cold run spends minutes in 
 ```yaml
 - uses: actions/setup-go@v6
   with:
-    go-version: '1.25'
+    go-version: '1.26'
     cache: true
 
 - name: Build gaiad
   run: |
-    git clone --depth 1 --branch v27.5.0 https://github.com/cosmos/gaia.git /tmp/gaia
+    git clone --depth 1 --branch v28.3.1 https://github.com/cosmos/gaia.git /tmp/gaia
     cd /tmp/gaia && go build -o /usr/local/bin/gaiad ./cmd/gaiad/
 ```
 

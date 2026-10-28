@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPublicClient, http } from 'viem';
-import { Instance, findFreePorts, XPLA_DEFAULT_IMAGE } from '../src/index.js';
+import { Instance, findFreePorts, XPLA_DEFAULT_IMAGE, XPLA_DEFAULT_PRECOMPILES } from '../src/index.js';
 
 /**
  * Boots xplad from its official container image — the default runtime for
@@ -62,5 +62,12 @@ describe('xplad (container runtime)', () => {
   it('streams node logs through the instance message buffer', () => {
     const messages = instance.messages.get();
     expect(messages.length).toBeGreaterThan(0);
+  });
+
+  it('activates the v1.14 mainnet precompile set in the running node', async () => {
+    const res = await fetch(`${instance.apiUrl}/cosmos/evm/vm/v1/params`);
+    expect(res.ok).toBe(true);
+    const data = (await res.json()) as { params: { active_static_precompiles: string[] } };
+    expect(data.params.active_static_precompiles).toEqual([...XPLA_DEFAULT_PRECOMPILES]);
   });
 });

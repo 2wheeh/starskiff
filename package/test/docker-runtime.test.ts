@@ -157,7 +157,7 @@ describe('cosmosEvmBase chain identity', () => {
 
 describe('container-first default images', () => {
   it('simd uses the official simapp image (minor-line pin)', () => {
-    expect(SIMD_DEFAULT_IMAGE).toBe('ghcr.io/cosmos/simapp:v0.53')
+    expect(SIMD_DEFAULT_IMAGE).toBe('ghcr.io/cosmos/simapp:v0.55')
   })
 
   it('gaiad pins the official gaia image at the live mainnet version', () => {
@@ -165,11 +165,11 @@ describe('container-first default images', () => {
   })
 
   it('wasmd pins an exact CosmWasm release tag', () => {
-    expect(WASMD_DEFAULT_IMAGE).toBe('cosmwasm/wasmd:v0.61.14')
+    expect(WASMD_DEFAULT_IMAGE).toBe('cosmwasm/wasmd:v0.70.5')
   })
 
-  it('xplad pins the official XPLA image', () => {
-    expect(XPLA_DEFAULT_IMAGE).toMatch(/^ghcr\.io\/xpladev\/xpla:v/)
+  it('xplad pins the official XPLA v1.14.0-rc4 image', () => {
+    expect(XPLA_DEFAULT_IMAGE).toBe('ghcr.io/xpladev/xpla:v1.14.0-rc4')
   })
 
   it('evmd pins the image starskiff publishes', () => {

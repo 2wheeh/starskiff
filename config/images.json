@@ -14,11 +14,11 @@
     {
       "name": "evmd",
       "repo": "cosmos/evm",
-      "ref": "v0.7.2",
-      "commit": "ef11f63c087b4c859b1e8eddc823f7cf2113a50a",
+      "ref": "v0.7.3",
+      "commit": "c3ae9067a7eadcdea55a5192226916deb44c71c4",
       "context": "images/evmd",
       "image": "ghcr.io/2wheeh/starskiff/evmd",
-      "digest": "sha256:05780885a2ac68caef0120deae1066d49af5e5bf49180b2d99ac6060f8bdd0dd",
+      "digest": "sha256:41f4d25ccf44aee828f3a404391c96e807df66a1d5d269ce581d56f8cf9a921f",
       "platforms": [
         "linux/amd64",
         "linux/arm64"

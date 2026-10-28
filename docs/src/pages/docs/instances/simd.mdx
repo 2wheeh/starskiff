@@ -2,7 +2,7 @@
 
 `Instance.simd()` boots the Cosmos SDK reference app ([simapp](https://github.com/cosmos/cosmos-sdk/tree/main/simapp)): bank, staking, gov, mint. Use it when you don't need CosmWasm or IBC.
 
-Container-first on the official simapp image (`ghcr.io/cosmos/simapp:v0.53`) — just Docker, no build. Note the image only tags minor lines, so it tracks the latest patch of `v0.53`; pass `binary` to run an exact-version build, or `image` to bind your own.
+Container-first on the official simapp image (`ghcr.io/cosmos/simapp:v0.55`) — just Docker, no build. Note the image only tags minor lines, so it tracks the latest patch of `v0.55`; pass `binary` to run an exact-version build, or `image` to bind your own.
 
 ## Usage
 
@@ -23,5 +23,5 @@ await instance.start();
 
 | Parameter | Type     | Default  | Description                          |
 | --------- | -------- | -------- | ------------------------------------ |
-| `image`   | `string` | `SIMD_DEFAULT_IMAGE` (`ghcr.io/cosmos/simapp:v0.53`) | Container image |
+| `image`   | `string` | `SIMD_DEFAULT_IMAGE` (`ghcr.io/cosmos/simapp:v0.55`) | Container image |
 | `binary`  | `string` | `"simd"` | Local binary (opts out of the container) |

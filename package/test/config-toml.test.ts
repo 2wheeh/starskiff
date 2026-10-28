@@ -19,7 +19,7 @@ describe('SDK config compatibility', () => {
     return file
   }
 
-  const optionalDefaults = { 'grpc-web.address': '0.0.0.0:19091' }
+  const optionalDefaults = { 'grpc-web.address': '0.0.0.0:19091', 'minimum-gas-prices': '0stake' }
 
   it('uses the API listener without warnings for SDKs without a separate gRPC-Web address', () => {
     const file = config('[api]\naddress = "tcp://localhost:1317"\n[grpc-web]\nenable = true\n')
@@ -42,5 +42,16 @@ describe('SDK config compatibility', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     patchToml(file, { 'api.address': 'tcp://localhost:1317', 'grpc-web.address': 'localhost:9091' }, 'marood', optionalDefaults)
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no matching key for api.address, grpc-web.address'))
+  })
+
+  it('patches gas prices when supported and warns for unsupported explicit overrides', () => {
+    const legacy = config('minimum-gas-prices = "1stake"\n')
+    patchToml(legacy, {}, 'legacy', optionalDefaults)
+    expect(fs.readFileSync(legacy, 'utf8')).toContain('minimum-gas-prices = "0stake"')
+
+    const xpla = config('[api]\nenable = true\n')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    patchToml(xpla, { 'minimum-gas-prices': '1axpla' }, 'xplad', optionalDefaults)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no matching key for minimum-gas-prices'))
   })
 })
