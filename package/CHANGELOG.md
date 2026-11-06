@@ -1,5 +1,11 @@
 # starskiff
 
+## 0.8.1
+
+### Patch Changes
+
+- [#47](https://github.com/2wheeh/starskiff/pull/47) [`ced0b74`](https://github.com/2wheeh/starskiff/commit/ced0b747a3cbb7441f6a3070e7249db63a970e3a) Thanks [@2wheeh](https://github.com/2wheeh)! - Update default images to Gaia v29.0.1, Sei v6.7.3, XRPL EVM v11.3.0, and THORChain v3.21.1.
+
 ## 0.8.0
 
 ### Minor Changes
