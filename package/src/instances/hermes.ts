@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import * as Instance from '../Instance.js';
 import { DEFAULT_COSMOS_EVM_PK_TYPE_URL, type CosmosInstance } from '../cosmos.js';
 import { createProcess } from '../process.js';
@@ -107,20 +108,32 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
   const name = 'hermes';
   const processManager = createProcess(name);
   let homeDir: string | undefined;
+  let setupController: AbortController | undefined;
+  let commandOperation: Promise<string> | undefined;
+  let cleanupOperation: Promise<void> | undefined;
 
   // Shared by stop() and start()'s failure path so a half-started relayer
   // (setup threw, or the start timeout fired) leaves nothing behind: the
   // child process and the temp home dir.
-  async function cleanup() {
-    try {
-      await processManager.stop();
-    } catch {
-      // best-effort: tolerate an already-dead process
-    }
-    if (homeDir) {
-      fs.rmSync(homeDir, { recursive: true, force: true });
-      homeDir = undefined;
-    }
+  function cleanup(): Promise<void> {
+    if (cleanupOperation) return cleanupOperation;
+    setupController?.abort(new Error('Hermes setup stopped.'));
+    const pendingCommand = commandOperation;
+    cleanupOperation = (async () => {
+      // A setup child must have exited before removing its config or allowing
+      // the owning instance to restart. Waiting only for the relayer misses it.
+      await pendingCommand?.catch(() => {});
+      try {
+        await processManager.stop();
+      } catch {
+        // best-effort: tolerate an already-dead process
+      }
+      if (homeDir) {
+        fs.rmSync(homeDir, { recursive: true, force: true });
+        homeDir = undefined;
+      }
+    })().finally(() => { cleanupOperation = undefined; });
+    return cleanupOperation;
   }
 
   return {
@@ -128,10 +141,14 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
     host: 'localhost',
     port: telemetryPort,
 
-    async start(_opts, { emitter, setStartDiagnostics }) {
+    async start(_opts, { emitter, setStartDiagnostics, signal: parentSignal }) {
+      const controller = new AbortController();
+      setupController = controller;
+      const signal = AbortSignal.any([parentSignal, controller.signal]);
       homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-hermes-'));
 
       try {
+      signal.throwIfAborted();
       setStartDiagnostics({ phase: 'relayer configuration' });
       const configPath = path.join(homeDir, 'config.toml');
       const log = (message: string) => {
@@ -152,29 +169,8 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
         if (message) log(`failed: hermes ${args.join(' ')} => ${message}`);
       };
 
-      const runSyncCommand = (args: string[], attempt: number, retries: number) => {
-        const result = spawnSync(binary, ['--config', configPath, ...args], {
-          stdio: 'pipe',
-          timeout: commandTimeoutMs,
-        });
-        const stderr = result.stderr?.toString() || '';
-        const stdout = result.stdout?.toString() || '';
-
-        if (result.status !== 0) {
-          const tail = `${stderr}\n${stdout}`.trim().split('\n').slice(-3).join(' | ');
-          if (tail) {
-            log(`failed: hermes ${args.join(' ')} => ${tail}`);
-          }
-
-          throw new Error(
-            `hermes ${args.join(' ')} failed (exit ${result.status}, signal ${result.signal}, attempt ${attempt + 1}/${retries + 1}):\n${stderr}\n${stdout}`,
-          );
-        }
-
-        return stdout + stderr;
-      };
-
       const streamCommandOutput = async (args: string[]) => {
+        signal.throwIfAborted();
         const stdoutChunks: string[] = [];
         const stderrChunks: string[] = [];
         const handshakeType = isStreamingCommand(args) ? args[1] : undefined;
@@ -218,9 +214,24 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
             return remainder;
           };
 
-          const timer = setTimeout(() => {
+          let commandError: unknown;
+          let killTimer: ReturnType<typeof setTimeout> | undefined;
+          const terminate = () => {
+            if (killTimer) return;
             child.kill('SIGTERM');
+            killTimer = setTimeout(() => child.kill('SIGKILL'), 1000);
+            killTimer.unref();
+          };
+          const onAbort = () => {
+            commandError = signal.reason;
+            terminate();
+          };
+          signal.addEventListener('abort', onAbort, { once: true });
+          const timer = setTimeout(() => {
+            commandError = new Error(`Hermes command exceeded its ${commandTimeoutMs}ms timeout.`);
+            terminate();
           }, commandTimeoutMs);
+          if (signal.aborted) onAbort();
 
           child.stdout?.on('data', (data: Buffer) => {
             const chunk = data.toString();
@@ -237,12 +248,17 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
           });
 
           child.on('error', error => {
-            clearTimeout(timer);
-            reject(error);
+            commandError = error;
           });
 
-          child.on('close', (code, signal) => {
+          child.on('close', (code, exitSignal) => {
             clearTimeout(timer);
+            if (killTimer) clearTimeout(killTimer);
+            signal.removeEventListener('abort', onAbort);
+            if (commandError !== undefined) {
+              reject(commandError);
+              return;
+            }
 
             const stdoutRemainder = stripColors(stdoutBuffer).trim();
             if (stdoutRemainder) recordHandshakeProgress(stdoutRemainder);
@@ -264,7 +280,7 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
 
             reject(
               new Error(
-                `hermes ${args.join(' ')} failed (exit ${code}, signal ${signal}):\n${stderrChunks.join('')}\n${stdoutChunks.join('')}`,
+                `hermes ${args.join(' ')} failed (exit ${code}, signal ${exitSignal}):\n${stderrChunks.join('')}\n${stdoutChunks.join('')}`,
               ),
             );
           });
@@ -281,27 +297,29 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
         });
 
         for (let attempt = 0; attempt <= retries; attempt++) {
+          signal.throwIfAborted();
           if (shouldAnnounceCommand(args)) {
             log(`run: hermes ${args.join(' ')} (attempt ${attempt + 1}/${retries + 1})`);
           }
           try {
-            const output = isStreamingCommand(args)
-              ? await streamCommandOutput(args)
-              : runSyncCommand(args, attempt, retries);
+            commandOperation = streamCommandOutput(args);
+            const output = await commandOperation;
+            signal.throwIfAborted();
 
             if (shouldAnnounceCommand(args)) {
               log(`ok: hermes ${args.join(' ')}`);
             }
             return output;
           } catch (error) {
+            signal.throwIfAborted();
             lastError = error as Error;
-            if (isStreamingCommand(args)) {
-              logCommandFailure(args, lastError);
-            }
+            logCommandFailure(args, lastError);
+          } finally {
+            commandOperation = undefined;
           }
 
           if (attempt < retries) {
-            await new Promise(resolve => setTimeout(resolve, commandRetryDelayMs));
+            await delay(commandRetryDelayMs, undefined, { signal });
           }
         }
 
@@ -473,6 +491,7 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
       });
       return await processManager.start(binary, ['--config', configPath, 'start'], {
         emitter,
+        signal,
         resolver({ process: proc, resolve, reject }) {
           let resolved = false;
 
@@ -496,7 +515,8 @@ export const hermes = Instance.define((parameters: HermesParameters) => {
         },
       });
       } catch (error) {
-        await cleanup();
+        // A cancelled retry delay may settle after a subsequent start begins.
+        if (setupController === controller) await cleanup();
         throw error;
       }
     },

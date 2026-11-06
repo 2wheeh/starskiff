@@ -59,3 +59,8 @@ Instances built on `cosmosEvmBase` (e.g. [evmd](/docs/instances/evmd)) advertise
 | `commandRetryDelayMs` | `number`                               | `5000`                     | Delay between retries                   |
 
 See the [IBC guide](/docs/guides/ibc) for an end-to-end transfer test.
+
+Setup commands run asynchronously. `commandTimeoutMs` limits each command attempt,
+while the instance's `options.timeout` limits the overall startup, including
+retries. An instance timeout cancels the active command and any retry delay;
+`stop()` waits for setup children to exit before removing their configuration.

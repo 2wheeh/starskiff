@@ -9,7 +9,7 @@
 - [x] Apply runtime options to every Cosmos genesis and start command
 - [x] Reject node exits before readiness regardless of exit code
 - [x] Preserve startup failures with the active phase, logical command, and a bounded output tail
-- [ ] Make Hermes setup commands asynchronous, cancellable, and bounded by the instance timeout
+- [x] Make Hermes setup commands asynchronous, cancellable, and bounded by the instance timeout
 - [ ] Align Hermes telemetry readiness with its exposed endpoint
 - [ ] Fail early when required TOML keys drift from supported chain layouts
 - [x] Validate `extraValidators` as a finite non-negative integer
@@ -36,7 +36,7 @@
 ## Test integrations
 
 - [x] Add `starskiff.config.ts` for declarative chain and relayer setup
-- [ ] Add `starskiff/vitest` for automatic suite setup and teardown
+- [x] Add `starskiff/vitest` for automatic suite setup and teardown
 - [ ] Add `starskiff/playwright` for automatic worker-scoped instances
 - [ ] Add a `starskiff/setup-binaries` GitHub Action for host-binary provisioning
 - [ ] Evaluate a shared Docker network for container-native chains and relayers

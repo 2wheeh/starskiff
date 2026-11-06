@@ -46,6 +46,6 @@ export default defineConfig({
 - Hermes channel pairs must contain two configured chain names. Repeated pairs are preserved for setups that intentionally create multiple channels.
 - The selected `Instance` factories and lifecycle options are preserved for a runner to consume.
 
-It deliberately does not discover the file, allocate ports, or start and stop instances. Import the config directly when building custom setup today. Automatic Vitest and Playwright lifecycle adapters are separate roadmap items.
+It deliberately does not discover the file, allocate ports, or start and stop instances. Import the config into [`createGlobalSetup()` from `starskiff/vitest`](/docs/guides/vitest) for automatic Vitest setup and teardown, or consume it in your own runner. A Playwright adapter remains a separate roadmap item.
 
 The normalized output has the public `DefinedStarskiffConfig` type, so runner code can depend on the contract without spelling `ReturnType<typeof defineConfig>`.

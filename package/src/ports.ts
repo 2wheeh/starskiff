@@ -11,7 +11,8 @@ export type PortSet = {
   evmPort?: number
 }
 
-const PORT_KEYS = ['rpcPort', 'grpcPort', 'apiPort', 'p2pPort', 'grpcWebPort', 'pprofPort'] as const
+/** @internal */
+export const PORT_KEYS = ['rpcPort', 'grpcPort', 'apiPort', 'p2pPort', 'grpcWebPort', 'pprofPort'] as const
 
 /** Binds a server to an OS-assigned ephemeral port and resolves with both. */
 function grabPort(): Promise<{ server: net.Server; port: number }> {
@@ -27,6 +28,20 @@ function grabPort(): Promise<{ server: net.Server; port: number }> {
       resolve({ server, port: address.port })
     })
   })
+}
+
+/** @internal Holds an automatic port until a runner is ready to start its instance. */
+export async function reservePort(excluded: ReadonlySet<number>) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { server, port } = await grabPort()
+    let releaseOperation: Promise<void> | undefined
+    const release = () => releaseOperation ??= new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve())
+    })
+    if (!excluded.has(port)) return { port, release }
+    await release()
+  }
+  throw new Error('Could not reserve a port outside the configured port set.')
 }
 
 /**
