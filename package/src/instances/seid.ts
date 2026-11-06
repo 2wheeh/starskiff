@@ -3,9 +3,9 @@ import { cosmosBase, type CosmosChainParameters, type Genesis } from '../cosmos.
 import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
-/** Official Sei v6.7.2 image (linux/amd64 and linux/arm64). */
+/** Official Sei v6.7.3 image (linux/amd64 and linux/arm64). */
 export const SEID_DEFAULT_IMAGE =
-  'ghcr.io/sei-protocol/sei@sha256:e03c8943360eef31a5f321c96c92c5595ea5e9f76e911c949b868fa95ebcb8fd'
+  'ghcr.io/sei-protocol/sei@sha256:0b0a9144aae16463c3f6fc78e64f4ef0f410f25c92eb1a601c596474f51cb4c7'
 
 export type SeidParameters = Omit<CosmosChainParameters, 'image'> & OptionalInstanceSource & {
   /** EVM HTTP JSON-RPC port. @default 8545 */

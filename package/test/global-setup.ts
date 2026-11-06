@@ -5,6 +5,9 @@ const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon a
 
 const RELAYER_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
 
+// Allow for cold Docker setup, including amd64-only Gaia on arm64 hosts.
+const CHAIN_OPTIONS = { timeout: 180_000 };
+
 export default async function setup({ provide }: TestProject) {
   const cleanups: (() => Promise<void>)[] = [];
   const startAndRegister = async (instance: {
@@ -22,7 +25,7 @@ export default async function setup({ provide }: TestProject) {
     chainId: 'starskiff-test-1',
     denom: 'stake',
     accounts: [{ mnemonic: TEST_MNEMONIC, coins: '1000000000stake', name: 'alice' }],
-  });
+  }, CHAIN_OPTIONS);
   console.log('[global-setup] starting simd...');
   await startAndRegister(simd);
   console.log('[global-setup] simd started');
@@ -40,7 +43,7 @@ export default async function setup({ provide }: TestProject) {
       { mnemonic: TEST_MNEMONIC, coins: '1000000000stake', name: 'alice' },
       { mnemonic: RELAYER_MNEMONIC, coins: '1000000000stake', name: 'relayer' },
     ],
-  });
+  }, CHAIN_OPTIONS);
 
   const wasmB = Instance.wasmd({
     chainId: 'ibc-wasm-b',
@@ -55,7 +58,7 @@ export default async function setup({ provide }: TestProject) {
       { mnemonic: TEST_MNEMONIC, coins: '1000000000stake', name: 'alice' },
       { mnemonic: RELAYER_MNEMONIC, coins: '1000000000stake', name: 'relayer' },
     ],
-  });
+  }, CHAIN_OPTIONS);
 
   const gaia = Instance.gaiad({
     chainId: 'ibc-cosmos-1',
@@ -70,7 +73,7 @@ export default async function setup({ provide }: TestProject) {
       { mnemonic: TEST_MNEMONIC, coins: '1000000000uatom', name: 'alice' },
       { mnemonic: RELAYER_MNEMONIC, coins: '1000000000uatom', name: 'relayer' },
     ],
-  });
+  }, CHAIN_OPTIONS);
 
   const xpla = Instance.xplad({
     chainId: 'dimension_37-1',
@@ -86,7 +89,7 @@ export default async function setup({ provide }: TestProject) {
       // Relayer funding for Hermes — axpla is 18-decimal so use a large balance
       { mnemonic: RELAYER_MNEMONIC, coins: '1000000000000000000000axpla', name: 'relayer' },
     ],
-  });
+  }, CHAIN_OPTIONS);
 
   const evmd = Instance.evmd({
     // Default image lane: EVMD_DEFAULT_IMAGE is published to GHCR and pinned
@@ -101,7 +104,7 @@ export default async function setup({ provide }: TestProject) {
     accounts: [
       { mnemonic: TEST_MNEMONIC, coins: '100000000000000000000000000atest', name: 'alice' },
     ],
-  });
+  }, CHAIN_OPTIONS);
 
   console.log('[global-setup] starting ibc chains + xpla + evmd...');
   const chainStarts = await Promise.allSettled([
