@@ -4,7 +4,7 @@ import { resolveInstanceImage } from '../docker.js'
 import type { OptionalInstanceSource } from '../source.js'
 
 /**
- * Official XRPL EVM v11.2.0 node image (published by Peersyst, the chain's dev
+ * Official XRPL EVM v11.3.0 node image (published by Peersyst, the chain's dev
  * shop), pinned by immutable manifest digest to the version running on mainnet
  * (`xrplevm_1440000-1`). Used unless the caller opts into a binary.
  *
@@ -13,7 +13,7 @@ import type { OptionalInstanceSource } from '../source.js'
  * emulation, or pass a `binary`.
  */
 export const XRPLEVM_DEFAULT_IMAGE =
-  'peersyst/exrp@sha256:115e6e20a3bc7c659b93996ff44e55cf670fff5e87444cb98c0063e041f43e7a'
+  'peersyst/exrp@sha256:661bbc66851840bb13186ea700242cafddad6dd1a85ca244c31c43ca4ff78ba5'
 
 /**
  * Default active static precompiles for xrplevm.
