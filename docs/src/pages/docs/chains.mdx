@@ -11,7 +11,7 @@ Beyond the [test nodes](/docs/instances), starskiff ships instance definitions f
 - **`Instance.thornode()`** — [THORChain](https://gitlab.com/thorchain/thornode), v3.21.0. Defaults to the official mainnet image, which is amd64-only; arm64 Docker hosts need amd64 emulation. Boots one active, unbonded validator with `rune` and prefix `thor` (coin type 931). Does not launch Bifrost, external chains, or vault signing. THORChain uses its native send messages; SDK bank sends are disabled. `extraValidators`, `validatorStake`, `prefix`, and `denom` overrides are not supported.
 - **`Instance.mantra()`** — [MANTRA](https://www.mantrachain.io). Runs the official `ghcr.io/mantra-chain/mantrachain` image (v8.7.0-pre.1, multi-arch, pinned to mainnet) by default. cosmos/evm + CosmWasm; defaults mirror mainnet (`mantra-1`, `eth_chainId` 5888).
 - **`Instance.xrplevm()`** — [XRPL EVM](https://www.xrplevm.org). Runs the official `peersyst/exrp` v11.2.0 image (pinned to mainnet) by default. cosmos/evm; defaults mirror mainnet (`xrplevm_1440000-1`, `eth_chainId` 1440000). Set `evmChainId` when a custom Cosmos `chainId` should use a different EVM JSON-RPC identity. The image is amd64-only — on arm64 hosts pre-pull with `docker pull --platform linux/amd64` (runs emulated) or pass a `binary`.
-- **`Instance.marood()`** — maroo. Private node source, so no default image: inject your own `binary`, or a private `image` where your CI allows it. `network: 'mainnet' | 'testnet'` presets select chain id + denoms; `testnet` matches viem's `marooTestnet`. The maroo module params (agent/eas/pcl/okrw) are seeded at genesis, including the Privacy precompile; pass `policyAdmin` / `minterAddress` to claim the admin-gated paths.
+- **`Instance.marood()`** — maroo v0.11. Requires an injected `image` or `binary`, a fresh Privacy V4 `privacyGenesis` file, and matching Clairveil v0.6.1 artifacts. `network` selects `testnet` (default, matching viem's `marooTestnet`) or `mainnet`. `policyAdmin` / `minterAddress` configure PCL and OKRW administration.
 
 ```ts
 Instance.xplad(); // official image out of the box
@@ -21,44 +21,11 @@ Instance.seid();
 Instance.thornode();
 Instance.cronosd({ binary: '/path/to/cronos/bin/cronosd' });
 Instance.dydxprotocold({ binary: '/path/to/dydxprotocold' });
-Instance.marood({ binary: 'marood', privacyGenesis: '/fixtures/privacy-genesis.json' }); // no default image — injection required
-```
-
-maroo v0.11 requires a **fresh Privacy V4 genesis** and matching Clairveil
-v0.6.1 audit-field artifacts. Supply absolute host paths:
-
-```ts
-const maroo = Instance.marood({
-  image: 'ghcr.io/hashed-open-finance/maroo:v0.11.0',
+Instance.marood({
+  binary: 'marood',
   privacyGenesis: '/fixtures/privacy-genesis.json',
-  privacyZkArtifacts: {
-    directory: '/fixtures/clairveil-v0.6.1-artifacts',
-  },
-  policyAdmin: 'maroo1...',
-  minterAddress: 'maroo1...',
+  privacyZkArtifacts: { directory: '/fixtures/clairveil-v0.6.1-artifacts' },
 });
-await maroo.start();
 ```
-
-`privacyGenesis` contains only the public `GenesisStateV4` object. Prepare it
-with maroo's bootstrap tooling for initial height **1**, the instance's Cosmos
-chain ID, and the preset fee denom. Defaults are `maroo_450815-1` / `atokrw`
-for testnet and `maroo_815-1` / `aokrw` for mainnet. Changing the chain ID
-requires a matching audit PoP. Starskiff inserts the JSON before gentx; marood
-validates the audit key, PoP, and circuit identity.
-
-Docker receives a read-only artifact mount and strict/development environment
-settings; local binaries receive the host directory directly. Starskiff does
-not generate artifacts, audit keys, or proofs. Omit `privacyZkArtifacts` only
-when the image already carries and configures the matching bundle. Published
-maroo images require the bundle separately. For a private GHCR image, log
-Docker in before running tests and grant the consumer repository package Read
-access; the `image` option uses Docker's existing registry credentials.
-
-The 19 default preinstalls include EntryPoint v0.6/v0.8/v0.9 and EAS. The PCL
-entrypoint allowlist includes all three versions. `policyAdmin` creates or
-updates the Privacy contract-policy owner as well as the PCL module admin,
-preserving existing policies. `minterAddress` sets the OKRW mint/burn admin.
-Both admin options are unset by default.
 
 Missing a chain? [Define it in a few lines](/docs/guides/custom-chains) with `cosmosBase` / `cosmosEvmBase`.

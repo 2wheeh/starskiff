@@ -35,7 +35,9 @@ inside an optional image as well as on the host.
 
 `Instance.marood` also requires `privacyGenesis`, an absolute host path to fresh
 Privacy V4 JSON. `privacyZkArtifacts: { directory }` supplies the matching
-Clairveil v0.6.1 bundle unless the image already configures it. See [maroo setup](/docs/chains).
+Clairveil v0.6.1 bundle unless the image already configures it. The genesis must
+match the instance's Cosmos chain ID, initial height **1**, and preset fee denom.
+See [maroo setup](/docs/chains).
 
 EVM chains (`CosmosEvmChainParameters`) add:
 
