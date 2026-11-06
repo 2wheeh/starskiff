@@ -33,6 +33,10 @@ requires exactly one. These public source contracts are also exported as
 `cosmosEvmBase` parameters remain separate: their `binary` names the executable
 inside an optional image as well as on the host.
 
+`Instance.marood` also requires `privacyGenesis`, an absolute host path to fresh
+Privacy V4 JSON. `privacyZkArtifacts: { directory }` supplies the matching
+Clairveil v0.6.1 bundle unless the image already configures it. See [maroo setup](/docs/chains).
+
 EVM chains (`CosmosEvmChainParameters`) add:
 
 | Parameter                 | Type       | Default | Description                                       |

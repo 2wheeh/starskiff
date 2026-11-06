@@ -59,34 +59,46 @@ Any instance also accepts a `binary` (local executable) or `image` (custom tag) 
 
 See the [CI guide](./../docs/src/pages/docs/guides/ci.mdx) for provisioning binaries on GitHub Actions.
 
-### maroo Privacy ZK artifacts
+### maroo v0.11
 
-maroo v0.8+ validates external Privacy ZK artifacts during genesis and node
-startup. Point `Instance.marood()` at an existing absolute host directory and
-starskiff applies the matching read-only mount and environment to every
-lifecycle command:
+Supply a node source, a fresh Privacy V4 genesis JSON file, and the matching
+Clairveil v0.6.1 audit-field artifact directory:
 
 ```ts
 const maroo = Instance.marood({
-  image: 'maroo:local',
+  image: 'ghcr.io/hashed-open-finance/maroo:v0.11.0',
+  privacyGenesis: '/absolute/path/to/privacy-genesis.json',
   privacyZkArtifacts: {
-    kind: 'generated-test',
-    directory: '/absolute/path/to/privacy-zk-test-artifacts',
+    directory: '/absolute/path/to/clairveil-v0.6.1-artifacts',
   },
 });
+await maroo.start();
+// maroo.rpcUrl / maroo.apiUrl / maroo.evmUrl
+await maroo.stop();
 ```
 
-Use `kind: 'release'` with an approved release bundle. That mode forces
-production/strict preflight and removes the test-only circuit identity opt-in.
-Generated artifacts require a marood binary or image built with the `test`
-build tag. The option also works with `binary: 'marood'`; starskiff passes the
-host path directly instead of mounting it.
+`privacyGenesis` points to a JSON file containing the public `GenesisStateV4`
+object, rather than an entire chain `genesis.json`. Prepare it for the instance's
+Cosmos chain ID, initial height **1**, and native fee denom. The default testnet preset uses
+`maroo_450815-1` and `atokrw`; the mainnet preset uses `maroo_815-1` and `aokrw`.
+The audit key's PoP binds to the chain ID, nonce, and height. Starskiff installs
+this JSON before gentx and leaves cryptographic validation to marood.
 
-Starskiff checks only that the path is absolute and names an existing
-directory. It does not generate, download, or approve artifacts, and leaves
-manifest, checksum, VK, and circuit-identity validation to marood. Omit the
-option when using a self-contained image that already carries and configures
-its artifacts.
+Prepare the bundle and public genesis using maroo's bootstrap tooling before
+running the tests. Starskiff does not generate keys, proofs, or trusted setup.
+The artifacts must match the genesis circuit identity. Docker receives a
+read-only directory mount and strict/development environment settings; local
+binaries receive the host path. Omit `privacyZkArtifacts` only when the image
+already contains and configures the matching artifacts. Published maroo images
+contain the node binary and require artifacts to be supplied separately.
+
+For private GHCR packages, log Docker in before running tests and grant each
+consumer repository Read access under the package's **Manage Actions access**.
+Starskiff uses Docker's existing credentials and pulls missing images.
+
+The default preinstalls include ERC-4337 EntryPoint v0.6/v0.8/v0.9 and corrected
+EAS runtime code. `policyAdmin` sets the PCL module admin and creates or updates
+the Privacy contract-policy owner; `minterAddress` sets the OKRW mint/burn admin.
 
 ## Usage
 

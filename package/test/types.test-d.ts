@@ -54,10 +54,9 @@ expectTypeOf<CosmosEvmBaseParameters['runtime']>().toEqualTypeOf<CosmosRuntimeOp
 expectTypeOf<'runtime' extends keyof MaroodParameters ? true : false>().toEqualTypeOf<false>()
 
 const privacyZkArtifacts: MaroodPrivacyZkArtifacts = {
-  kind: 'generated-test',
   directory: '/tmp/maroo-privacy-zk-test-artifacts',
 }
-const maroodChain = Instance.marood({ image: 'maroo:local', privacyZkArtifacts })
+const maroodChain = Instance.marood({ image: 'maroo:local', privacyGenesis: '/tmp/privacy-genesis.json', privacyZkArtifacts })
 expectTypeOf(maroodChain.evmUrl).toBeString()
 
 // High-level instance sources are mutually exclusive. Image-backed wrappers
@@ -101,14 +100,17 @@ Instance.mantra({ image: 'registry/mantra:v1', binary: 'mantrachaind' })
 // @ts-expect-error Every shipped default-image wrapper uses the same exclusive source contract.
 Instance.evmd({ image: 'registry/evmd:v1', binary: 'evmd' })
 
-Instance.marood({ image: 'registry/marood:v1' })
-Instance.marood({ binary: 'marood', network: 'mainnet' }, { timeout: 30_000 })
+Instance.marood({ image: 'registry/marood:v0.11.0', privacyGenesis: '/tmp/privacy-genesis.json' })
+Instance.marood({ binary: 'marood', privacyGenesis: '/tmp/privacy-genesis.json', network: 'mainnet' }, { timeout: 30_000 })
 // @ts-expect-error marood has no default source.
 Instance.marood()
 // @ts-expect-error Other marood parameters do not replace its required source.
 Instance.marood({ network: 'testnet' })
 // @ts-expect-error marood also rejects conflicting sources.
 Instance.marood({ image: 'registry/marood:v1', binary: 'marood' })
+
+// @ts-expect-error A fresh V4 genesis input is required.
+Instance.marood({ image: 'registry/marood:v0.11.0' })
 
 // Low-level builders keep `binary` as the executable name even for an image,
 // so custom definitions can continue supplying both fields internally.
