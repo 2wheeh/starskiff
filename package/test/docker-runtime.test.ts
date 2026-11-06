@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, it, expect } from 'vitest'
+import { marooFixtures } from './fixtures/maroo/index.js'
 import { resolveInstanceImage, runArgs, startArgs } from '../src/docker.js'
 import { resolveMaroodPrivacyZkRuntime } from '../src/instances/marood.js'
 import { applyRuntimeEnvironment } from '../src/runtime.js'
@@ -93,8 +94,8 @@ describe('injection-required instances', () => {
   })
 
   it('marood constructs with an injected source', () => {
-    expect(Instance.marood({ binary: 'marood', privacyGenesis: '/tmp/privacy.json' }).name).toBe('marood')
-    expect(Instance.marood({ image: 'my/marood:private', privacyGenesis: '/tmp/privacy.json' }).name).toBe('marood')
+    expect(Instance.marood({ binary: 'marood', privacyGenesis: marooFixtures.testnetGenesis }).name).toBe('marood')
+    expect(Instance.marood({ image: 'my/marood:private', privacyGenesis: marooFixtures.testnetGenesis }).name).toBe('marood')
   })
 })
 
@@ -263,19 +264,19 @@ describe('marood Privacy ZK artifacts', () => {
   it('validates only that the host input is an absolute existing directory', () => {
     expect(() => Instance.marood({
       image: 'maroo:local',
-      privacyGenesis: '/tmp/privacy.json',
+      privacyGenesis: marooFixtures.testnetGenesis,
       privacyZkArtifacts: { directory: 'relative/artifacts' },
     })).toThrow(/absolute host path/)
 
     expect(() => Instance.marood({
       binary: 'marood',
-      privacyGenesis: '/tmp/privacy.json',
+      privacyGenesis: marooFixtures.testnetGenesis,
       privacyZkArtifacts: { directory: path.join(artifactDirectory, 'missing') },
     })).toThrow(/not an existing directory/)
 
     expect(() => Instance.marood({
       image: 'maroo:local',
-      privacyGenesis: '/tmp/privacy.json',
+      privacyGenesis: marooFixtures.testnetGenesis,
       privacyZkArtifacts: { directory: artifactDirectory },
     })).not.toThrow()
   })

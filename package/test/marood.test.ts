@@ -9,12 +9,14 @@ import { Instance, MAROO_NETWORKS, findFreePorts } from '../src/index.js'
  * network presets: `testnet` against viem's `marooTestnet` chain definition
  * (chain id, native currency, multicall3 preinstall) including a signed EVM
  * transfer, Privacy runtime, PCL ownership, and canonical AA bytecode.
- * Supply MAROO_PRIVACY_GENESIS / MAROO_MAINNET_PRIVACY_GENESIS for each preset,
- * plus MAROO_PRIVACY_ZK_ARTIFACT_DIR (unless the image embeds the bundle).
- * MAROO_IMAGE selects Docker; otherwise MAROO_BINARY selects the host binary.
+ * Startup uses local genesis and verifier artifacts supplied through environment variables.
+ * MAROO_IMAGE selects Docker; MAROO_BINARY selects the host binary.
+ * MAROO_PRIVACY_GENESIS / MAROO_MAINNET_PRIVACY_GENESIS select each preset
+ * and MAROO_PRIVACY_ZK_ARTIFACT_DIR supplies the matching local bundle.
  * MAROO_TEST_PORT_BASE optionally avoids Docker Desktop's ephemeral port range.
  */
 
+const hasSource = Boolean(process.env.MAROO_IMAGE || process.env.MAROO_BINARY)
 const source = process.env.MAROO_IMAGE
   ? { image: process.env.MAROO_IMAGE }
   : { binary: process.env.MAROO_BINARY ?? 'marood' }
@@ -40,7 +42,7 @@ const bob = mnemonicToAccount(TEST_MNEMONIC, { addressIndex: 1 })
 // alice = 0x9858EfFD232B4033E47d90003D41EC34EcaEda94 → bech32(maroo, …)
 const aliceBech32 = 'maroo1npvwllfr9dqr8erajqqr6s0vxnk2ak55fg67c4'
 
-describe.skipIf(!process.env.MAROO_PRIVACY_GENESIS)('marood testnet preset (viem marooTestnet)', () => {
+describe.skipIf(!hasSource || !process.env.MAROO_PRIVACY_GENESIS)('marood testnet preset (viem marooTestnet)', () => {
   const { bondDenom, feeDenom } = MAROO_NETWORKS.testnet
 
   let instance: ReturnType<typeof Instance.marood>
@@ -174,7 +176,7 @@ describe.skipIf(!process.env.MAROO_PRIVACY_GENESIS)('marood testnet preset (viem
   })
 })
 
-describe.skipIf(!process.env.MAROO_MAINNET_PRIVACY_GENESIS)('marood mainnet preset', () => {
+describe.skipIf(!hasSource || !process.env.MAROO_MAINNET_PRIVACY_GENESIS)('marood mainnet preset', () => {
   const { chainId, evmChainId, bondDenom, feeDenom } = MAROO_NETWORKS.mainnet
 
   let instance: ReturnType<typeof Instance.marood>

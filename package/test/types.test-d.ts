@@ -15,6 +15,7 @@ import {
   type OptionalInstanceSource,
 } from '../src/index.js'
 import { expectTypeOf } from 'vitest'
+import { marooFixtures } from './fixtures/maroo/index.js'
 
 // CosmosInstance extra fields should be inferred
 const chain = Instance.wasmd({ chainId: 'test', prefix: 'wasm' })
@@ -54,9 +55,9 @@ expectTypeOf<CosmosEvmBaseParameters['runtime']>().toEqualTypeOf<CosmosRuntimeOp
 expectTypeOf<'runtime' extends keyof MaroodParameters ? true : false>().toEqualTypeOf<false>()
 
 const privacyZkArtifacts: MaroodPrivacyZkArtifacts = {
-  directory: '/tmp/maroo-privacy-zk-test-artifacts',
+  directory: marooFixtures.directory,
 }
-const maroodChain = Instance.marood({ image: 'maroo:local', privacyGenesis: '/tmp/privacy-genesis.json', privacyZkArtifacts })
+const maroodChain = Instance.marood({ image: 'maroo:local', privacyGenesis: marooFixtures.testnetGenesis, privacyZkArtifacts })
 expectTypeOf(maroodChain.evmUrl).toBeString()
 
 // High-level instance sources are mutually exclusive. Image-backed wrappers
@@ -100,8 +101,8 @@ Instance.mantra({ image: 'registry/mantra:v1', binary: 'mantrachaind' })
 // @ts-expect-error Every shipped default-image wrapper uses the same exclusive source contract.
 Instance.evmd({ image: 'registry/evmd:v1', binary: 'evmd' })
 
-Instance.marood({ image: 'registry/marood:v0.11.0', privacyGenesis: '/tmp/privacy-genesis.json' })
-Instance.marood({ binary: 'marood', privacyGenesis: '/tmp/privacy-genesis.json', network: 'mainnet' }, { timeout: 30_000 })
+Instance.marood({ image: 'registry/marood:v0.11.0', privacyGenesis: marooFixtures.testnetGenesis })
+Instance.marood({ binary: 'marood', privacyGenesis: marooFixtures.mainnetGenesis, network: 'mainnet' }, { timeout: 30_000 })
 // @ts-expect-error marood has no default source.
 Instance.marood()
 // @ts-expect-error Other marood parameters do not replace its required source.

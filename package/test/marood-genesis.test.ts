@@ -11,26 +11,18 @@ import {
   type Genesis,
 } from '../src/index.js';
 
-// Boundary fixtures only; marood validates the cryptographic V4 payload at startup.
+import { marooFixtures } from './fixtures/maroo/index.js';
+
+const privacyGenesis = marooFixtures.testnetGenesis;
+const mainnetPrivacyGenesis = marooFixtures.mainnetGenesis;
+const privacyV4 = JSON.parse(fs.readFileSync(privacyGenesis, 'utf-8'));
+// Only mutable invalid inputs need temporary files.
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'starskiff-maroo-genesis-'));
-const privacyV4 = {
-  format_version: 4,
-  mode: 'FRESH',
-  initial_height: 1,
-  network_nonce32: 'public-network-nonce',
-  initial_audit_key: { public_key: 'public-audit-key', pop: 'public-proof-of-possession' },
-  circuit_set_identity: { circuit_set_id: 'privacy-note-v1-u128-audit-field-v1' },
-  asset_registry: [{ canonical_denom: 'atokrw', asset_id: 'public-asset-id' }],
-};
 function writePrivacy(name: string, value: unknown): string {
   const file = path.join(directory, `${name}.json`);
   fs.writeFileSync(file, JSON.stringify(value));
   return file;
 }
-const privacyGenesis = writePrivacy('testnet', privacyV4);
-const mainnetPrivacyGenesis = writePrivacy('mainnet', {
-  ...privacyV4, asset_registry: [{ canonical_denom: 'aokrw', asset_id: 'mainnet-asset-id' }],
-});
 afterAll(() => fs.rmSync(directory, { recursive: true, force: true }));
 
 // Hardcoded literals rather than imported constants (module-internal in
