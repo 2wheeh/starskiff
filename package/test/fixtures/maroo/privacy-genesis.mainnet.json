@@ -1,0 +1,19 @@
+{
+  "format_version": 4,
+  "mode": "FRESH",
+  "initial_height": 1,
+  "network_nonce32": "synthetic-unit-test-nonce",
+  "initial_audit_key": {
+    "public_key": "synthetic-unit-test-public-key",
+    "pop": "synthetic-unit-test-pop"
+  },
+  "circuit_set_identity": {
+    "fixture": "synthetic-unit-test-identity"
+  },
+  "asset_registry": [
+    {
+      "canonical_denom": "aokrw",
+      "asset_id": "synthetic-unit-test-asset-id"
+    }
+  ]
+}

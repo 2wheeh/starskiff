@@ -12,7 +12,7 @@ export { XPLA_DEFAULT_PRECOMPILES, XPLA_DEFAULT_IMAGE, type XpladParameters } fr
 export { XRPLEVM_DEFAULT_PRECOMPILES, XRPLEVM_DEFAULT_IMAGE, type XrplevmParameters } from './instances/xrplevm.js'
 export { MANTRA_DEFAULT_PRECOMPILES, MANTRA_DEFAULT_IMAGE, type MantraParameters } from './instances/mantra.js'
 export { EVMD_DEFAULT_PRECOMPILES, EVMD_DEFAULT_IMAGE, type EvmdParameters } from './instances/evmd.js'
-export { MAROO_NETWORKS, MAROO_DEFAULT_PRECOMPILES, MAROO_PREINSTALLS, MAROO_NATIVE_ERC20, MAROO_DEFAULT_PCL_ENTRYPOINTS, patchMaroodGenesis, type MaroodParameters, type MaroodPrivacyZkArtifacts, type MaroodNetwork, type MaroodNetworkPreset, type EvmPreinstall, type PatchMaroodGenesisOptions } from './instances/marood.js'
+export { MAROO_NETWORKS, MAROO_DEFAULT_PRECOMPILES, MAROO_PREINSTALLS, MAROO_DEFAULT_PCL_ENTRYPOINTS, patchMaroodGenesis, type MaroodParameters, type MaroodPrivacyZkArtifacts, type MaroodNetwork, type MaroodNetworkPreset, type EvmPreinstall, type PatchMaroodGenesisOptions } from './instances/marood.js'
 export type { EventTypes } from './process.js'
 export type { BinaryInstanceSource, ImageInstanceSource, InstanceSource, OptionalInstanceSource } from './source.js'
 export { findFreePorts, type PortSet } from './ports.js'

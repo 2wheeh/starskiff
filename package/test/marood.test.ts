@@ -2,14 +2,36 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createPublicClient, createWalletClient, http, parseEther, parseAbi } from 'viem'
 import { mnemonicToAccount } from 'viem/accounts'
 import { marooTestnet } from 'viem/chains'
-import { Instance, MAROO_NETWORKS, MAROO_NATIVE_ERC20, findFreePorts } from '../src/index.js'
+import { Instance, MAROO_NETWORKS, findFreePorts } from '../src/index.js'
 
 /**
  * Boots dedicated marood instances (no shared global-setup) and verifies the
  * network presets: `testnet` against viem's `marooTestnet` chain definition
  * (chain id, native currency, multicall3 preinstall) including a signed EVM
- * transfer, and `mainnet` for chain identity + the split denom model.
+ * transfer, Privacy runtime, PCL ownership, and canonical AA bytecode.
+ * Startup uses local genesis and verifier artifacts supplied through environment variables.
+ * MAROO_IMAGE selects Docker; MAROO_BINARY selects the host binary.
+ * MAROO_PRIVACY_GENESIS / MAROO_MAINNET_PRIVACY_GENESIS select each preset
+ * and MAROO_PRIVACY_ZK_ARTIFACT_DIR supplies the matching local bundle.
+ * MAROO_TEST_PORT_BASE optionally avoids Docker Desktop's ephemeral port range.
  */
+
+const hasSource = Boolean(process.env.MAROO_IMAGE || process.env.MAROO_BINARY)
+const source = process.env.MAROO_IMAGE
+  ? { image: process.env.MAROO_IMAGE }
+  : { binary: process.env.MAROO_BINARY ?? 'marood' }
+const privacyZkArtifacts = process.env.MAROO_PRIVACY_ZK_ARTIFACT_DIR
+  ? { directory: process.env.MAROO_PRIVACY_ZK_ARTIFACT_DIR }
+  : undefined
+
+async function testPorts(offset: number) {
+  if (!process.env.MAROO_TEST_PORT_BASE) return findFreePorts({ evm: true })
+  const base = Number(process.env.MAROO_TEST_PORT_BASE) + offset
+  return {
+    rpcPort: base, grpcPort: base + 1, apiPort: base + 2,
+    p2pPort: base + 3, grpcWebPort: base + 4, pprofPort: base + 5, evmPort: base + 6,
+  }
+}
 
 const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
@@ -20,7 +42,7 @@ const bob = mnemonicToAccount(TEST_MNEMONIC, { addressIndex: 1 })
 // alice = 0x9858EfFD232B4033E47d90003D41EC34EcaEda94 → bech32(maroo, …)
 const aliceBech32 = 'maroo1npvwllfr9dqr8erajqqr6s0vxnk2ak55fg67c4'
 
-describe('marood testnet preset (viem marooTestnet)', () => {
+describe.skipIf(!hasSource || !process.env.MAROO_PRIVACY_GENESIS)('marood testnet preset (viem marooTestnet)', () => {
   const { bondDenom, feeDenom } = MAROO_NETWORKS.testnet
 
   let instance: ReturnType<typeof Instance.marood>
@@ -29,8 +51,11 @@ describe('marood testnet preset (viem marooTestnet)', () => {
 
   beforeAll(async () => {
     instance = Instance.marood({
-      binary: 'marood', // no default image (private node source)
-      ...(await findFreePorts({ evm: true })),
+      ...source,
+      privacyGenesis: process.env.MAROO_PRIVACY_GENESIS!,
+      privacyZkArtifacts,
+      policyAdmin: aliceBech32,
+      ...(await testPorts(0)),
       accounts: [
         // coins must be alphabetically sorted: atmaroo < atokrw
         {
@@ -103,26 +128,66 @@ describe('marood testnet preset (viem marooTestnet)', () => {
     expect(bobBalance).toBe(parseEther('1'))
   })
 
-  it('has the native OKRW ERC20 precompile responding with the preset symbol', async () => {
-    const symbol = await publicClient.readContract({
-      address: MAROO_NATIVE_ERC20,
-      abi: parseAbi(['function symbol() view returns (string)']),
-      functionName: 'symbol',
+  it('initializes the Privacy V4 audit runtime through the precompile', async () => {
+    const schedule = await publicClient.readContract({
+      address: '0x100000000000000000000000000000000000000b',
+      abi: parseAbi([
+        'function auditKeySchedule() view returns ((uint64 activeEpoch, uint64 nextActivationHeight, uint64 nextEpoch, bool halted, int64 stateHeight) schedule)',
+      ]),
+      functionName: 'auditKeySchedule',
     })
-    expect(symbol).toBe(marooTestnet.nativeCurrency.symbol)
+    expect(schedule.activeEpoch).toBe(1n)
+    expect(schedule.halted).toBe(false)
+    expect(schedule.stateHeight).toBeGreaterThan(0n)
+  })
+
+  it('assigns the Privacy contract-policy owner and all three PCL entrypoints', async () => {
+    const paramsResponse = await fetch(`${instance.apiUrl}/maroo/pcl/v1/params`)
+    expect(paramsResponse.ok).toBe(true)
+    const { params } = await paramsResponse.json() as {
+      params: { policy_admin: string; entrypoints: string[] }
+    }
+    expect(params.policy_admin).toBe(aliceBech32)
+    expect(params.entrypoints).toHaveLength(3)
+    const policyResponse = await fetch(
+      `${instance.apiUrl}/maroo/pcl/v1/contract_policies/maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt575gw7`,
+    )
+    expect(policyResponse.ok).toBe(true)
+    const policy = await policyResponse.json() as { config: { admin: string } }
+    expect(policy.config.admin).toBe(aliceBech32)
+  })
+
+  it('uses the canonical SenderCreator baked into EntryPoint v0.8', async () => {
+    const creator = await publicClient.readContract({
+      address: '0x4337084d9e255ff0702461cf8895ce9e3b5ff108',
+      abi: parseAbi(['function senderCreator() view returns (address)']),
+      functionName: 'senderCreator',
+    })
+    expect(creator.toLowerCase()).toBe('0x449ed7c3e6fee6a97311d4b55475df59c44add33')
+  })
+
+  it('installs EntryPoint v0.6 and v0.9', async () => {
+    for (const address of [
+      '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789',
+      '0x433709009b8330fda32311df1c2afa402ed8d009',
+    ] as const) {
+      expect((await publicClient.getCode({ address }))?.length).toBeGreaterThan(2)
+    }
   })
 })
 
-describe('marood mainnet preset', () => {
+describe.skipIf(!hasSource || !process.env.MAROO_MAINNET_PRIVACY_GENESIS)('marood mainnet preset', () => {
   const { chainId, evmChainId, bondDenom, feeDenom } = MAROO_NETWORKS.mainnet
 
   let instance: ReturnType<typeof Instance.marood>
 
   beforeAll(async () => {
     instance = Instance.marood({
-      binary: 'marood', // no default image (private node source)
+      ...source,
+      privacyGenesis: process.env.MAROO_MAINNET_PRIVACY_GENESIS!,
+      privacyZkArtifacts,
       network: 'mainnet',
-      ...(await findFreePorts({ evm: true })),
+      ...(await testPorts(10)),
       accounts: [
         // coins must be alphabetically sorted: amaroo < aokrw
         {

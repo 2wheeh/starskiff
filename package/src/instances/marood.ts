@@ -21,7 +21,7 @@ export type MaroodNetworkPreset = {
   chainId: string
   /** Staking/bond denom (gentx, `staking.params.bond_denom`). */
   bondDenom: string
-  /** Fee + EVM denom (18 decimals; gov, mint, `evm.params.evm_denom`). */
+  /** Fee + EVM denom (18 decimals; gov and `evm.params.evm_denom`). */
   feeDenom: string
   /** Display unit of the fee denom (exponent 18). */
   displayDenom: string
@@ -61,14 +61,11 @@ export const MAROO_NETWORKS: Record<MaroodNetwork, MaroodNetworkPreset> = {
   },
 }
 
-/** ERC20 representation of maroo's native fee denom (erc20 native precompile). */
-export const MAROO_NATIVE_ERC20 = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-
 /**
  * Default active static precompiles for marood.
  *
  * Mirrors `precompiles/types.DefaultActiveStaticPrecompiles()` in the maroo
- * repo: the cosmos-evm `x/vm` available set minus Vesting (0x…0803), plus
+ * repo: the cosmos-evm set without Vesting, ICS20, Bank, or ICS02, plus
  * maroo's own precompiles.
  */
 export const MAROO_DEFAULT_PRECOMPILES: readonly string[] = [
@@ -76,16 +73,13 @@ export const MAROO_DEFAULT_PRECOMPILES: readonly string[] = [
   '0x0000000000000000000000000000000000000400', // Bech32
   '0x0000000000000000000000000000000000000800', // Staking
   '0x0000000000000000000000000000000000000801', // Distribution
-  '0x0000000000000000000000000000000000000802', // ICS20
-  '0x0000000000000000000000000000000000000804', // Bank
   '0x0000000000000000000000000000000000000805', // Gov
   '0x0000000000000000000000000000000000000806', // Slashing
-  '0x0000000000000000000000000000000000000807', // ICS02
   '0x1000000000000000000000000000000000000001', // OKRW
   '0x1000000000000000000000000000000000000005', // PCL
   '0x1000000000000000000000000000000000000009', // EAS
   '0x100000000000000000000000000000000000000A', // Agent
-  '0x100000000000000000000000000000000000000b', // Privacy (maroo v0.8+)
+  '0x100000000000000000000000000000000000000b', // Privacy
 ]
 
 /**
@@ -101,30 +95,28 @@ const MAROO_EAS_SCHEMA_REGISTRY_CONTRACT = 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 const MAROO_EAS_CONTRACT = 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq89qjzle'
 const MAROO_EAS_INDEXER_CONTRACT = 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg6dp7qp'
 
-/**
- * Default `pcl.params.entrypoints` — the "Entrypoint v8" preinstall
- * (0x4337084d9e255ff0702461cf8895ce9e3b5ff108) in bech32, which
- * {@link MAROO_PREINSTALLS} already seeds at genesis.
- */
+/** Default ERC-4337 v0.6, v0.8, and v0.9 entrypoints, in bech32. */
 export const MAROO_DEFAULT_PCL_ENTRYPOINTS: readonly string[] = [
+  'maroo1tlcn049slhx5nh9rp3702ljh3gpx6fufd52r78',
   'maroo1gvmssnv7y40lqupyv88c39wwnca4luggmf5lq0',
+  'maroo1gvmsjqymsvc0mgerz803c2h6gqhd35qfx3tslf',
 ]
 
-export type MaroodPrivacyZkArtifacts =
-  | {
-      kind: 'generated-test'
-      /** Absolute host path containing generated, non-production test artifacts. */
-      directory: string
-    }
-  | {
-      kind: 'release'
-      /** Absolute host path containing an approved release artifact bundle. */
-      directory: string
-    }
+export type MaroodPrivacyZkArtifacts = {
+  /** Absolute host directory containing a Clairveil v0.6.1 audit-field bundle. */
+  directory: string
+}
 
 export type MaroodParameters = Omit<CosmosEvmChainParameters, 'image'> & InstanceSource & {
   /**
-   * External Privacy ZK artifacts required by maroo v0.8+.
+   * Absolute host path to a fresh Privacy GenesisStateV4 JSON file.
+   * Its audit PoP must bind to this instance's chainId and initial height 1;
+   * its native asset must use the selected network's fee denom.
+   * Starskiff inserts the public JSON into app_state.privacy before gentx.
+   */
+  privacyGenesis: string
+  /**
+   * External Clairveil v0.6.1 audit-field artifacts.
    *
    * Omit this for a self-contained image whose artifacts and environment are
    * already configured. Starskiff validates only the host path; marood's
@@ -145,8 +137,8 @@ export type MaroodParameters = Omit<CosmosEvmChainParameters, 'image'> & Instanc
   preinstalls?: readonly EvmPreinstall[]
   /**
    * Bech32 address for `pcl.params.policy_admin`, which gates the PCL
-   * precompile's admin methods. Also updates the existing Privacy contract-policy
-   * admin in maroo v0.8 genesis, preserving its policies. Omit to retain genesis admins.
+   * precompile's admin methods. Also creates or updates the Privacy
+   * contract-policy owner, preserving existing policies.
    */
   policyAdmin?: string
   /**
@@ -168,20 +160,17 @@ const PRIVACY_ZK_CONTAINER_DIRECTORY = '/starskiff/privacy-zk-artifacts'
 const PRIVACY_ZK_ARTIFACT_DIR_ENV = 'CLAIRVEIL_PRIVACY_ZK_ARTIFACT_DIR'
 const PRIVACY_ZK_PREFLIGHT_MODE_ENV = 'CLAIRVEIL_PRIVACY_ZK_PREFLIGHT_MODE'
 const PRIVACY_ZK_RUNTIME_ENVIRONMENT_ENV = 'CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT'
-const TEST_PRIVACY_RELEASE_ENV = 'MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS'
+const MAROO_PRIVACY_PRECOMPILE = 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt575gw7'
 
-/** Translates the marood-specific option into custom-chain runtime options. */
+/** Configures artifact access and keeps init independent of inherited genesis paths. */
 export function resolveMaroodPrivacyZkRuntime(
   artifacts: MaroodPrivacyZkArtifacts | undefined,
   containerRuntime: boolean,
-): RuntimeOptions | undefined {
-  if (!artifacts) return undefined
+): RuntimeOptions {
+  // The required privacyGenesis input is installed by starskiff after init.
+  const unsetEnvironment = ['MAROO_PRIVACY_GENESIS']
+  if (!artifacts) return { unsetEnvironment }
 
-  if (artifacts.kind !== 'generated-test' && artifacts.kind !== 'release') {
-    throw new Error(
-      'marood: privacyZkArtifacts.kind must be "generated-test" or "release".',
-    )
-  }
   if (typeof artifacts.directory !== 'string' || !path.isAbsolute(artifacts.directory)) {
     throw new Error('marood: privacyZkArtifacts.directory must be an absolute host path.')
   }
@@ -204,17 +193,12 @@ export function resolveMaroodPrivacyZkRuntime(
   const environment: Record<string, string> = {
     [PRIVACY_ZK_ARTIFACT_DIR_ENV]: artifactDirectory,
     [PRIVACY_ZK_PREFLIGHT_MODE_ENV]: 'strict',
-  }
-
-  if (artifacts.kind === 'generated-test') {
-    environment[TEST_PRIVACY_RELEASE_ENV] = '1'
-  } else {
-    environment[PRIVACY_ZK_RUNTIME_ENVIRONMENT_ENV] = 'production'
+    [PRIVACY_ZK_RUNTIME_ENVIRONMENT_ENV]: 'development',
   }
 
   return {
     environment,
-    unsetEnvironment: artifacts.kind === 'release' ? [TEST_PRIVACY_RELEASE_ENV] : undefined,
+    unsetEnvironment,
     mounts: containerRuntime
       ? [{ source: artifacts.directory, target: PRIVACY_ZK_CONTAINER_DIRECTORY, readOnly: true }]
       : undefined,
@@ -225,6 +209,7 @@ export function resolveMaroodPrivacyZkRuntime(
 export type PatchMaroodGenesisOptions = {
   preset: MaroodNetworkPreset
   preinstalls: readonly EvmPreinstall[]
+  privacyGenesis: string
   policyAdmin?: string
   minterAddress?: string
   entrypoints?: readonly string[]
@@ -236,25 +221,33 @@ export type PatchMaroodGenesisOptions = {
  * place and returns it, like every other patch hook here.
  *
  * Mirrors the jq patches in the maroo repo's `local_node.sh`: EVM denom +
- * bank metadata, the native OKRW ERC20 pair, genesis preinstalls, and the
- * okrw/pcl/eas/agent module params — their precompile constructors read those
- * at startup, and on a bare `marood init` genesis (cosmos/evm defaults, not
- * maroo's) they fail, silently dropping the maroo precompiles from the EVM's
- * available set.
+ * bank metadata, genesis preinstalls, and the
+ * okrw/pcl/eas/agent module params. Installs the supplied fresh Privacy V4
+ * genesis; marood validates the audit key, PoP, and circuit identity at startup.
  *
  * Every module patch is guarded by a presence check (`app[module]?.params`)
  * since callers may run this against other genesis layouts. Runs before
  * `opts.patchGenesis` so caller overrides always win.
  */
 export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOptions): Genesis {
-  const { preset, preinstalls, policyAdmin, minterAddress, entrypoints, patchGenesis: userPatch } = opts
+  const { preset, preinstalls, privacyGenesis, policyAdmin, minterAddress, entrypoints, patchGenesis: userPatch } = opts
   const feeDenom = preset.feeDenom
 
-  // cosmosBase's patchDenom pointed mint/gov at the bond denom; maroo
-  // denominates those in the fee denom.
-  if (genesis.app_state.mint?.params) {
-    genesis.app_state.mint.params.mint_denom = feeDenom
+  if (typeof privacyGenesis !== 'string' || !path.isAbsolute(privacyGenesis)) {
+    throw new Error('marood: privacyGenesis must be an absolute host path to a fresh Privacy V4 JSON file.')
   }
+  const privacy = JSON.parse(fs.readFileSync(privacyGenesis, 'utf-8'))
+  if (privacy?.format_version !== 4 || privacy.mode !== 'FRESH' || privacy.initial_height !== 1) {
+    throw new Error('marood: privacyGenesis must describe FRESH Privacy V4 genesis at initial_height 1.')
+  }
+  if (!Array.isArray(privacy.asset_registry) || !privacy.asset_registry.some(
+    (asset: { canonical_denom?: string } | null) => asset?.canonical_denom === feeDenom,
+  )) {
+    throw new Error(`marood: privacyGenesis must register the native fee denom ${feeDenom}.`)
+  }
+  genesis.app_state.privacy = privacy
+
+  // Governance uses the fee denom, while staking uses the bond denom.
   const gov = genesis.app_state.gov
   if (gov?.params?.min_deposit?.[0]) gov.params.min_deposit[0].denom = feeDenom
   const govParams = gov?.params as
@@ -264,8 +257,7 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
     govParams.expedited_min_deposit[0].denom = feeDenom
   }
 
-  // EVM denom: init default is aatom; startup panics unless it points at
-  // a denom with bank metadata.
+  // Align the EVM denomination with the preset and its bank metadata.
   const evm = (genesis.app_state as Record<string, unknown>).evm as
     | {
         params: { evm_denom?: string; extended_denom_options?: { extended_denom: string } }
@@ -298,17 +290,6 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
     ]
   }
 
-  // Native OKRW ERC20 representation (app/genesis.go NewErc20GenesisState).
-  const erc20 = (genesis.app_state as Record<string, unknown>).erc20 as
-    | { token_pairs?: unknown[]; native_precompiles?: string[] }
-    | undefined
-  if (erc20) {
-    erc20.token_pairs = [
-      { contract_owner: 1, erc20_address: MAROO_NATIVE_ERC20, denom: feeDenom, enabled: true },
-    ]
-    erc20.native_precompiles = [MAROO_NATIVE_ERC20]
-  }
-
   // The maroo module params (see docblock). mint_denom's compiled-in default
   // is the mainnet aokrw, so the preset must stay authoritative.
   const okrw = (genesis.app_state as Record<string, unknown>).okrw as
@@ -322,7 +303,7 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
   const pcl = (genesis.app_state as Record<string, unknown>).pcl as
     | {
         params?: { policy_admin?: string; entrypoints?: string[] }
-        contract_policies?: { config: { contract: string; admin: string } }[]
+        contract_policies?: { config: { contract: string; admin: string }; policies?: unknown[] }[]
       }
     | undefined
   if (pcl?.params) {
@@ -330,13 +311,13 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
     pcl.params.entrypoints = [...(entrypoints ?? MAROO_DEFAULT_PCL_ENTRYPOINTS)]
   }
 
-  if (policyAdmin) {
-    // v0.8 seeds this separately from the PCL module admin. Keep its mandatory
-    // EAS/denylist baseline and all unrelated contract policies intact.
-    for (const policy of pcl?.contract_policies ?? []) {
-      if (policy.config.contract === 'maroo1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqt575gw7') {
-        policy.config.admin = policyAdmin
-      }
+  if (policyAdmin && pcl?.params) {
+    const policies = pcl.contract_policies ??= []
+    const privacyPolicy = policies.find((policy) => policy.config.contract === MAROO_PRIVACY_PRECOMPILE)
+    if (privacyPolicy) {
+      privacyPolicy.config.admin = policyAdmin
+    } else {
+      policies.push({ config: { contract: MAROO_PRIVACY_PRECOMPILE, admin: policyAdmin }, policies: [] })
     }
   }
 
@@ -370,7 +351,7 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
  * Defines a marood (maroo) instance.
  *
  * maroo is a cosmos-evm chain with a split denom model: staking is
- * denominated in `(at)maroo` while fees, gov, mint and the EVM run on the
+ * denominated in `(at)maroo` while fees, gov and the EVM run on the
  * 18-decimal `a(t)okrw` — starskiff's `denom` maps to the BOND denom here,
  * and the preset's `feeDenom` is wired into everything else.
  *
@@ -379,9 +360,9 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
  * executable on PATH) or `image` (e.g. a private image where your CI allows
  * it). Constructing without either throws.
  *
- * A plain `marood init` writes cosmos/evm module defaults rather than
- * maroo's app-side defaults, so this instance runs {@link patchMaroodGenesis}
- * to mirror the repo's `local_node.sh` — including the preinstalls viem's
+ * Targets maroo v0.11. A plain `marood init` writes a genesis draft without
+ * Privacy state. This instance installs the supplied fresh V4 JSON and mirrors
+ * the repo's `local_node.sh` — including the preinstalls viem's
  * `marooTestnet.contracts` assumes at `blockCreated: 0` (Multicall3 et al)
  * and the okrw/pcl/eas/agent module params the maroo precompiles require.
  *
@@ -389,6 +370,8 @@ export function patchMaroodGenesis(genesis: Genesis, opts: PatchMaroodGenesisOpt
  * ```ts
  * const instance = Instance.marood({
  *   binary: 'marood', // or image: a private image ref
+ *   privacyGenesis: '/absolute/path/to/privacy-genesis.json',
+ *   privacyZkArtifacts: { directory: '/absolute/path/to/audit-field-artifacts' },
  *   accounts: [{ mnemonic: '...', coins: '1000000000000000000000atokrw' }],
  * })
  * await instance.start()
@@ -413,6 +396,7 @@ export const marood = Instance.define((parameters: MaroodParameters) => {
     policyAdmin,
     minterAddress,
     entrypoints,
+    privacyGenesis,
     privacyZkArtifacts,
     patchGenesis: userPatch,
     ...rest
@@ -420,10 +404,13 @@ export const marood = Instance.define((parameters: MaroodParameters) => {
 
   // No default image (private node source): image or binary required.
   const image = resolveInstanceImage('marood', params)
+  if (typeof privacyGenesis !== 'string' || !path.isAbsolute(privacyGenesis)) {
+    throw new Error('marood: privacyGenesis must be an absolute host path to a fresh Privacy V4 JSON file.')
+  }
   const privacyZkRuntime = resolveMaroodPrivacyZkRuntime(privacyZkArtifacts, Boolean(image))
 
   // Same three-state semantics as evmd: omitted → maroo default set; explicit
-  // `undefined` → binary default (empty); `[]` / `[...]` → as given.
+  // `undefined` → binary default; `[]` / `[...]` → as given.
   const activeStaticPrecompiles =
     'activeStaticPrecompiles' in params ? params.activeStaticPrecompiles : MAROO_DEFAULT_PRECOMPILES
 
@@ -437,6 +424,6 @@ export const marood = Instance.define((parameters: MaroodParameters) => {
     evmChainId: preset.evmChainId,
     activeStaticPrecompiles,
     patchGenesis: (genesis) =>
-      patchMaroodGenesis(genesis, { preset, preinstalls, policyAdmin, minterAddress, entrypoints, patchGenesis: userPatch }),
+      patchMaroodGenesis(genesis, { preset, preinstalls, privacyGenesis, policyAdmin, minterAddress, entrypoints, patchGenesis: userPatch }),
   })
 })

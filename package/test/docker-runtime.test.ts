@@ -2,9 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, it, expect } from 'vitest'
+import { marooFixtures } from './fixtures/maroo/index.js'
 import { resolveInstanceImage, runArgs, startArgs } from '../src/docker.js'
 import { resolveMaroodPrivacyZkRuntime } from '../src/instances/marood.js'
-import { applyRuntimeEnvironment, type RuntimeOptions } from '../src/runtime.js'
+import { applyRuntimeEnvironment } from '../src/runtime.js'
 import {
   Instance,
   cosmosEvmBase,
@@ -87,9 +88,14 @@ describe('injection-required instances', () => {
     expect(() => Instance.marood({ binary: undefined })).toThrow(/non-empty/)
   })
 
+  it('marood requires a Privacy V4 input as well as a source', () => {
+    // @ts-expect-error Runtime validation remains for JavaScript callers.
+    expect(() => Instance.marood({ image: 'my/marood:private' })).toThrow(/privacyGenesis.*absolute host path/)
+  })
+
   it('marood constructs with an injected source', () => {
-    expect(Instance.marood({ binary: 'marood' }).name).toBe('marood')
-    expect(Instance.marood({ image: 'my/marood:private' }).name).toBe('marood')
+    expect(Instance.marood({ binary: 'marood', privacyGenesis: marooFixtures.testnetGenesis }).name).toBe('marood')
+    expect(Instance.marood({ image: 'my/marood:private', privacyGenesis: marooFixtures.testnetGenesis }).name).toBe('marood')
   })
 })
 
@@ -202,9 +208,9 @@ describe('marood Privacy ZK artifacts', () => {
     )
   })
 
-  it('maps generated test artifacts for every Docker invocation', () => {
+  it('maps audit-field artifacts for every Docker invocation', () => {
     const runtime = resolveMaroodPrivacyZkRuntime(
-      { kind: 'generated-test', directory: artifactDirectory },
+      { directory: artifactDirectory },
       true,
     )
 
@@ -212,9 +218,9 @@ describe('marood Privacy ZK artifacts', () => {
       environment: {
         CLAIRVEIL_PRIVACY_ZK_ARTIFACT_DIR: '/starskiff/privacy-zk-artifacts',
         CLAIRVEIL_PRIVACY_ZK_PREFLIGHT_MODE: 'strict',
-        MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS: '1',
+        CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT: 'development',
       },
-      unsetEnvironment: undefined,
+      unsetEnvironment: ['MAROO_PRIVACY_GENESIS'],
       mounts: [{
         source: artifactDirectory,
         target: '/starskiff/privacy-zk-artifacts',
@@ -230,64 +236,48 @@ describe('marood Privacy ZK artifacts', () => {
       expect(args).toContain(`${artifactDirectory}:/starskiff/privacy-zk-artifacts:ro`)
       expect(args).toContain('CLAIRVEIL_PRIVACY_ZK_ARTIFACT_DIR=/starskiff/privacy-zk-artifacts')
       expect(args).toContain('CLAIRVEIL_PRIVACY_ZK_PREFLIGHT_MODE=strict')
-      expect(args).toContain('MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS=1')
+      expect(args).toContain('CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT=development')
+      expect(args).toContain('MAROO_PRIVACY_GENESIS=')
     }
   })
 
-  it('maps release artifacts to a local binary and removes a leaked test override', () => {
-    const runtime = resolveMaroodPrivacyZkRuntime(
-      { kind: 'release', directory: artifactDirectory },
-      false,
-    )
-
-    expect(runtime).toEqual({
-      environment: {
-        CLAIRVEIL_PRIVACY_ZK_ARTIFACT_DIR: artifactDirectory,
-        CLAIRVEIL_PRIVACY_ZK_PREFLIGHT_MODE: 'strict',
-        CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT: 'production',
-      },
-      unsetEnvironment: ['MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS'],
-      mounts: undefined,
-    })
-
+  it('maps the same bundle to a local binary without a container mount', () => {
+    const runtime = resolveMaroodPrivacyZkRuntime({ directory: artifactDirectory }, false)
     const environment = applyRuntimeEnvironment({
-      KEEP_ME: 'yes',
-      MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS: '1',
+      KEEP_ME: 'yes', MAROO_PRIVACY_GENESIS: '/unrelated/privacy.json',
     }, runtime)
     expect(environment.KEEP_ME).toBe('yes')
-    expect(environment.MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS).toBeUndefined()
+    expect(environment.MAROO_PRIVACY_GENESIS).toBeUndefined()
     expect(environment.CLAIRVEIL_PRIVACY_ZK_ARTIFACT_DIR).toBe(artifactDirectory)
+    expect(environment.CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT).toBe('development')
+    expect(runtime?.mounts).toBeUndefined()
   })
 
-  it('overrides a test opt-in baked into a release image with an empty value', () => {
-    const runtime = resolveMaroodPrivacyZkRuntime(
-      { kind: 'release', directory: artifactDirectory },
-      true,
-    ) as RuntimeOptions
-    const args = runArgs(
-      { image: 'maroo:v0.8.0', homeDir: '/tmp/chain', runtime },
-      'marood',
-      ['init', 'validator'],
-    )
-
-    expect(args).toContain('MAROO_TEST_PRIVACY_RELEASE_FROM_ARTIFACTS=')
-    expect(args).toContain('CLAIRVEIL_PRIVACY_ZK_RUNTIME_ENVIRONMENT=production')
+  it('ignores inherited genesis files when artifacts are embedded in the image', () => {
+    const runtime = resolveMaroodPrivacyZkRuntime(undefined, true)
+    const args = runArgs({ image: 'maroo:v0.11.0', homeDir: '/tmp/chain', runtime }, 'marood', ['init', 'validator'])
+    expect(args).toContain('MAROO_PRIVACY_GENESIS=')
+    expect(runtime.environment).toBeUndefined()
+    expect(runtime.mounts).toBeUndefined()
   })
 
   it('validates only that the host input is an absolute existing directory', () => {
     expect(() => Instance.marood({
       image: 'maroo:local',
-      privacyZkArtifacts: { kind: 'generated-test', directory: 'relative/artifacts' },
+      privacyGenesis: marooFixtures.testnetGenesis,
+      privacyZkArtifacts: { directory: 'relative/artifacts' },
     })).toThrow(/absolute host path/)
 
     expect(() => Instance.marood({
       binary: 'marood',
-      privacyZkArtifacts: { kind: 'release', directory: path.join(artifactDirectory, 'missing') },
+      privacyGenesis: marooFixtures.testnetGenesis,
+      privacyZkArtifacts: { directory: path.join(artifactDirectory, 'missing') },
     })).toThrow(/not an existing directory/)
 
     expect(() => Instance.marood({
       image: 'maroo:local',
-      privacyZkArtifacts: { kind: 'generated-test', directory: artifactDirectory },
+      privacyGenesis: marooFixtures.testnetGenesis,
+      privacyZkArtifacts: { directory: artifactDirectory },
     })).not.toThrow()
   })
 })

@@ -48,7 +48,11 @@ the instance, while JavaScript callers get the same fail-fast runtime error if
 they omit both.
 
 ```ts
-Instance.marood({ image: 'my-registry/marood:private' }); // or { binary: 'marood' }
+Instance.marood({
+  image: 'my-registry/marood:private', // or binary: 'marood'
+  privacyGenesis: '/fixtures/privacy-genesis.json',
+  privacyZkArtifacts: { directory: '/fixtures/clairveil-v0.6.1-artifacts' },
+});
 ```
 
 ## Where the image comes from

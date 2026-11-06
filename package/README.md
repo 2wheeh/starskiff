@@ -59,34 +59,10 @@ Any instance also accepts a `binary` (local executable) or `image` (custom tag) 
 
 See the [CI guide](./../docs/src/pages/docs/guides/ci.mdx) for provisioning binaries on GitHub Actions.
 
-### maroo Privacy ZK artifacts
-
-maroo v0.8+ validates external Privacy ZK artifacts during genesis and node
-startup. Point `Instance.marood()` at an existing absolute host directory and
-starskiff applies the matching read-only mount and environment to every
-lifecycle command:
-
-```ts
-const maroo = Instance.marood({
-  image: 'maroo:local',
-  privacyZkArtifacts: {
-    kind: 'generated-test',
-    directory: '/absolute/path/to/privacy-zk-test-artifacts',
-  },
-});
-```
-
-Use `kind: 'release'` with an approved release bundle. That mode forces
-production/strict preflight and removes the test-only circuit identity opt-in.
-Generated artifacts require a marood binary or image built with the `test`
-build tag. The option also works with `binary: 'marood'`; starskiff passes the
-host path directly instead of mounting it.
-
-Starskiff checks only that the path is absolute and names an existing
-directory. It does not generate, download, or approve artifacts, and leaves
-manifest, checksum, VK, and circuit-identity validation to marood. Omit the
-option when using a self-contained image that already carries and configures
-its artifacts.
+`Instance.marood` targets maroo v0.11 and also requires `privacyGenesis`
+(fresh Privacy V4 JSON) and matching Clairveil v0.6.1 artifacts through
+`privacyZkArtifacts: { directory }`. Use absolute host paths; see
+[Chains](./../docs/src/pages/docs/chains.mdx) for an example.
 
 ## Usage
 
