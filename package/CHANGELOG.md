@@ -1,5 +1,11 @@
 # starskiff
 
+## 0.8.2
+
+### Patch Changes
+
+- [#49](https://github.com/2wheeh/starskiff/pull/49) [`ce81b96`](https://github.com/2wheeh/starskiff/commit/ce81b964554e3a2f8ea4d02c19c4286d5801f134) Thanks [@2wheeh](https://github.com/2wheeh)! - Updated runtime dependencies to `@noble/hashes` 2.4.0 and `tinyexec` 1.3.1.
+
 ## 0.8.1
 
 ### Patch Changes
